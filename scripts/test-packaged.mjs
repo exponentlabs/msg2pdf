@@ -107,6 +107,8 @@ try {
         },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
+        // cmd.exe owns the quoting of its /c command, rather than Node's CRT rules.
+        windowsVerbatimArguments: true,
       },
     );
     let stdout = '';
