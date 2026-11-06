@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a conversion or application problem using synthetic data.
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private emails, attachments, file paths or credentials. Report security vulnerabilities through the repository's Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and architecture
+      placeholder: Windows 11 x64, macOS Apple Silicon, or Linux distribution/version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Describe the input format and GUI actions or terminal command. Use synthetic examples and remove personal paths.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true

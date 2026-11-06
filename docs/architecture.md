@@ -1,6 +1,6 @@
-# Architecture and rewrite plan
+# Architecture
 
-The Python implementation is archived under `legacy/python`. The active app is a strict TypeScript application with a shared conversion core, isolated Electron processes, and a bundled terminal launcher. It performs no background network requests.
+msg2pdf is a strict TypeScript application with a shared conversion core, isolated Electron processes and a bundled terminal launcher. It performs no background network requests.
 
 ## Layers
 
@@ -29,15 +29,6 @@ Office files run through an optional, separately installed LibreOffice with a di
 On macOS, Office uses a short private workspace and redirects its instance IPC socket there. The policy allows AF_UNIX bind/connect only inside that workspace; TCP/IP remains denied. This avoids relying on LibreOffice's shared `/tmp` instance socket and stays within macOS's Unix socket path limit. Canonical paths are used in the policy because macOS temporary paths commonly contain `/var` → `/private/var` aliases.
 
 The CLI bootstrap runs in the packaged Electron Node runtime, starts an isolated Electron conversion process, and renders the same structured events as plain terminal progress or one JSON summary. It does not need system Node. GUI and CLI jobs use output-directory locks to prevent competing overwrites. Files are staged privately and committed with rename (overwrite) or an exclusive hard link (skip existing). Attachments share the output name allocator with top-level PDFs.
-
-## Implementation plan
-
-1. Replace active Python metadata/CI with pinned pnpm, strict TypeScript, Biome and reproducible bundles; retain legacy for reference only.
-2. Implement portable discovery/planning, MSG/EML normalization, safe attachments, atomic writes and structured results.
-3. Build the isolated Electron controller, native file capabilities, optional LibreOffice configuration and shared CLI.
-4. Build the local React workbench: real queue/preview/options, cancellation, recent activity and report export.
-5. Package app-owned runtime, launchers, icon, third-party notices and Windows Office broker; configure OS-specific installers.
-6. Verify naming/security/error paths with independent synthetic fixtures, real Electron GUI/CLI conversions, and packaged-app smoke tests. Run OS-specific CI on native runners before distributing each platform.
 
 ## Deliberate tradeoffs
 

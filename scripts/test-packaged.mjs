@@ -9,7 +9,8 @@ import { FuseState, FuseV1Options, getCurrentFuseWire } from '@electron/fuses';
 import { PDFDocument } from 'pdf-lib';
 
 const platform = process.platform;
-const folders = await readdir('release', { withFileTypes: true });
+const releaseDirectory = process.env.MSG2PDF_RELEASE === '1' ? 'release/public' : 'release';
+const folders = await readdir(releaseDirectory, { withFileTypes: true });
 const folder = folders.find(
   (entry) =>
     entry.isDirectory() &&
@@ -20,7 +21,7 @@ const folder = folders.find(
         : entry.name === (process.arch === 'arm64' ? 'linux-arm64-unpacked' : 'linux-unpacked')),
 );
 if (!folder) throw new Error('Build the native portable application with pnpm package:dir first');
-const root = resolve('release', folder.name);
+const root = resolve(releaseDirectory, folder.name);
 const resources =
   platform === 'darwin' ? join(root, 'msg2pdf.app/Contents/Resources') : join(root, 'resources');
 const executable =
@@ -29,9 +30,12 @@ const executable =
     : join(root, platform === 'win32' ? 'msg2pdf.exe' : 'msg2pdf');
 const archive = join(resources, 'app.asar');
 for (const document of [
+  'LICENSE',
+  'NOTICE',
   'README.md',
   'SECURITY.md',
   'CONTRIBUTING.md',
+  'CHANGELOG.md',
   'docs/architecture.md',
   'docs/distribution.md',
   'docs/licensing.md',
@@ -82,7 +86,7 @@ try {
   const input = join(temporary, 'mail.eml');
   await writeFile(
     input,
-    'From: alex@example.test\r\nTo: taylor@example.test\r\nSubject: Packaged runtime\r\n\r\nNo system Node or Python is needed to convert this message.\r\n',
+    'From: alex@example.test\r\nTo: taylor@example.test\r\nSubject: Packaged runtime\r\n\r\nThe packaged runtime converts this message.\r\n',
   );
   const launcher = join(resources, 'bin', platform === 'win32' ? 'msg2pdf.cmd' : 'msg2pdf');
   const args = ['-i', input, '-o', join(temporary, 'pdf'), '--json'];

@@ -1,0 +1,12 @@
+msg2pdf
+Copyright 2026 Exponent Labs
+
+Original msg2pdf code and documentation are licensed under the Apache License,
+Version 2.0. See LICENSE for the full terms.
+
+Third-party components and assets retain their own licences and attribution.
+See resources/THIRD_PARTY_NOTICES.txt in the source tree, or
+THIRD_PARTY_NOTICES.txt beside this file in packaged applications. Electron
+and Chromium notices are also included with the application runtime.
+
+See docs/licensing.md for scope and dependency details.

@@ -46,7 +46,7 @@ await mkdir('resources', { recursive: true });
 await writeFile('resources/third-party-notices.json', `${JSON.stringify(packages, null, 2)}\n`);
 const separator = `\n\n${'='.repeat(78)}\n`;
 let text =
-  'msg2pdf — Third-party notices\n\nProject licensing remains pending owner review. These notices grant no licence\nto original msg2pdf code. They reproduce upstream dependency licences.\n\nElectron/Chromium notices are also shipped beside the application runtime as\nLICENSE.electron.txt and LICENSES.chromium.html (names vary by platform).\n';
+  'msg2pdf — Third-party notices\n\nOriginal msg2pdf code and documentation are licensed under Apache-2.0.\nSee the project LICENSE and NOTICE. Third-party components and assets retain\ntheir own licences, reproduced below.\n\nElectron/Chromium notices are also shipped beside the application runtime as\nLICENSE.electron.txt and LICENSES.chromium.html (names vary by platform).\n';
 for (const entry of packages) {
   text += `${separator}${entry.name}@${entry.version} — ${entry.license}\n${entry.homepage}\n`;
   for (const notice of entry.notices) text += `\n${notice.file}\n${notice.text}\n`;

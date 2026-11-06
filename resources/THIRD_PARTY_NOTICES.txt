@@ -1,7 +1,8 @@
 msg2pdf — Third-party notices
 
-Project licensing remains pending owner review. These notices grant no licence
-to original msg2pdf code. They reproduce upstream dependency licences.
+Original msg2pdf code and documentation are licensed under Apache-2.0.
+See the project LICENSE and NOTICE. Third-party components and assets retain
+their own licences, reproduced below.
 
 Electron/Chromium notices are also shipped beside the application runtime as
 LICENSE.electron.txt and LICENSES.chromium.html (names vary by platform).

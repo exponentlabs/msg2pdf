@@ -5,8 +5,16 @@
   "author": {
     "name": "Exponent Labs"
   },
-  "description": "A private, offline email-to-PDF workbench for desktop and terminal.",
-  "license": "UNLICENSED",
+  "description": "An offline email-to-PDF workbench for desktop and terminal.",
+  "homepage": "https://github.com/exponentlabs/msg2pdf#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exponentlabs/msg2pdf.git"
+  },
+  "bugs": {
+    "url": "https://github.com/exponentlabs/msg2pdf/issues"
+  },
+  "license": "Apache-2.0",
   "type": "module",
   "main": "out/main/index.cjs",
   "packageManager": "pnpm@12.16.1",
@@ -28,6 +36,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:e2e",
     "package:dir": "pnpm build && electron-builder --config electron-builder.config.cjs --dir --publish never",
     "package": "pnpm build && electron-builder --config electron-builder.config.cjs --publish never",
+    "package:release": "node scripts/release.mjs",
     "icon": "electron scripts/icon.cjs",
     "test:packaged": "node scripts/test-packaged.mjs",
     "licenses:generate": "node scripts/licenses.mjs",

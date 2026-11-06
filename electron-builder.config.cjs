@@ -1,5 +1,9 @@
 const { access, chmod, copyFile } = require('node:fs/promises');
 const { join } = require('node:path');
+const { validateSigningEnvironment } = require('./scripts/signing.cjs');
+
+const releaseBuild = process.env.MSG2PDF_RELEASE === '1';
+if (releaseBuild) validateSigningEnvironment(process.platform, process.env);
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -9,18 +13,22 @@ module.exports = {
   executableName: 'msg2pdf',
   // biome-ignore lint/suspicious/noTemplateCurlyInString: electron-builder expands these artifact macros.
   artifactName: 'msg2pdf-${version}-${os}-${arch}.${ext}',
-  directories: { output: 'release', buildResources: 'build' },
+  directories: { output: releaseBuild ? 'release/public' : 'release', buildResources: 'build' },
+  forceCodeSigning: releaseBuild && process.platform !== 'linux',
   asar: true,
   npmRebuild: false,
   buildDependenciesFromSource: false,
   files: ['out/**/*', 'package.json', '!node_modules/**'],
   extraMetadata: { dependencies: {}, devDependencies: {} },
   extraResources: [
+    { from: 'LICENSE', to: 'LICENSE' },
+    { from: 'NOTICE', to: 'NOTICE' },
     { from: 'resources/THIRD_PARTY_NOTICES.txt', to: 'THIRD_PARTY_NOTICES.txt' },
     { from: 'resources/third-party-notices.json', to: 'third-party-notices.json' },
     { from: 'README.md', to: 'README.md' },
     { from: 'SECURITY.md', to: 'SECURITY.md' },
     { from: 'CONTRIBUTING.md', to: 'CONTRIBUTING.md' },
+    { from: 'CHANGELOG.md', to: 'CHANGELOG.md' },
     { from: 'docs', to: 'docs', filter: ['**/*.md'] },
   ],
   electronFuses: {
@@ -40,12 +48,22 @@ module.exports = {
     // A local ad-hoc signature has no Team ID. Hardened library validation is
     // enabled for credentialed release builds, where all binaries share one.
     hardenedRuntime: Boolean(process.env.CSC_NAME || process.env.CSC_LINK),
+    notarize: releaseBuild ? true : undefined,
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
   },
   win: {
     target: ['nsis'],
+    azureSignOptions:
+      process.env.WIN_SIGNING_PROVIDER === 'azure'
+        ? {
+            publisherName: process.env.WIN_PUBLISHER_NAME,
+            endpoint: process.env.AZURE_SIGNING_ENDPOINT,
+            codeSigningAccountName: process.env.AZURE_SIGNING_ACCOUNT_NAME,
+            certificateProfileName: process.env.AZURE_SIGNING_CERTIFICATE_PROFILE_NAME,
+          }
+        : undefined,
     extraResources: [
       { from: 'resources/native/office-sandbox.exe', to: 'native/office-sandbox.exe' },
     ],
@@ -61,13 +79,20 @@ module.exports = {
   linux: {
     target: ['AppImage', 'deb'],
     category: 'Office',
-    synopsis: 'Private offline email-to-PDF workbench',
+    synopsis: 'Offline email-to-PDF workbench',
     description:
       'Convert MSG and EML messages locally, with optional LibreOffice document conversion.',
     maintainer: 'Exponent Labs',
   },
   deb: { depends: ['libgtk-3-0', 'libnss3', 'libxss1', 'libasound2', 'bubblewrap'] },
   publish: null,
+  afterSign: async (context) => {
+    if (releaseBuild && context.electronPlatformName === 'win32') {
+      await context.packager.signIf(
+        join(context.appOutDir, 'resources', 'native', 'office-sandbox.exe'),
+      );
+    }
+  },
   beforePack: async (context) => {
     if (context.electronPlatformName === 'win32')
       await access('resources/native/office-sandbox.exe');

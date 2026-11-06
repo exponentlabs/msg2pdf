@@ -9,9 +9,10 @@
 resources/launchers/mac text eol=lf
 resources/launchers/linux text eol=lf
 resources/launchers/windows text eol=crlf
-*.py text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 *.md text eol=lf
-*.toml text eol=lf
+LICENSE text eol=lf
+NOTICE text eol=lf
+resources/THIRD_PARTY_NOTICES.txt text eol=lf
 *.lock text eol=lf

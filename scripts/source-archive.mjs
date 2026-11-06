@@ -2,8 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-// An explicit allowlist prevents caches, old Python code, personal files and
-// conversion outputs from accidentally entering a source distribution.
+// Include only maintained source, resources and project documentation.
 const entries = ['src', 'tests', 'scripts', 'native', 'build', 'docs', '.github', 'resources'];
 const files = [
   'package.json',
@@ -14,8 +13,11 @@ const files = [
   '.gitignore',
   '.gitattributes',
   'README.md',
+  'LICENSE',
+  'NOTICE',
   'SECURITY.md',
   'CONTRIBUTING.md',
+  'CHANGELOG.md',
   'biome.json',
   'tsconfig.base.json',
   'tsconfig.node.json',
@@ -35,10 +37,17 @@ async function collect(directory) {
 }
 for (const directory of entries) await collect(directory);
 files.sort();
-await mkdir('release', { recursive: true });
-const result = spawnSync('tar', ['-czf', 'release/msg2pdf-source.tar.gz', ...files], {
-  stdio: 'inherit',
-});
+const outputDirectory = process.env.MSG2PDF_RELEASE === '1' ? 'release/public' : 'release';
+await mkdir(outputDirectory, { recursive: true });
+const result = spawnSync(
+  'tar',
+  ['-czf', join(outputDirectory, 'msg2pdf-source.tar.gz'), ...files],
+  {
+    stdio: 'inherit',
+    // macOS tar otherwise creates AppleDouble entries for extended attributes.
+    env: { ...process.env, COPYFILE_DISABLE: '1' },
+  },
+);
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 console.log(`Archived ${files.length} selected source files.`);

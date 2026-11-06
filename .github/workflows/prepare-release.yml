@@ -1,0 +1,100 @@
+name: Prepare release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version to prepare (for example 1.0.0)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@9bbca1e9dc2902adb87e8780fe5c98796985a62d # v6.1.1
+        with:
+          version: 12.16.1
+          run_install: false
+      - name: Check release version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node -e "require('node:assert/strict').equal(require('./package.json').version, process.env.RELEASE_VERSION)"
+      - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c # v1.13.0
+        if: runner.os == 'Windows'
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 bubblewrap
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec install-electron --no
+      - name: Configure Chromium sandbox on the ephemeral Linux runner
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+          echo "CHROME_DEVEL_SANDBOX=$GITHUB_WORKSPACE/node_modules/electron/dist/chrome-sandbox" >> "$GITHUB_ENV"
+      - name: Verify source
+        if: runner.os != 'Linux'
+        run: pnpm check
+      - name: Verify source with display server
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm check
+      - run: pnpm audit:production
+      - name: Prepare macOS release
+        if: runner.os == 'macOS'
+        run: pnpm package:release
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Prepare Windows release
+        if: runner.os == 'Windows'
+        run: pnpm package:release
+        env:
+          WIN_SIGNING_PROVIDER: ${{ vars.WIN_SIGNING_PROVIDER || 'azure' }}
+          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_SIGNING_ACCOUNT_NAME }}
+          AZURE_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          WIN_PUBLISHER_NAME: ${{ vars.WIN_PUBLISHER_NAME }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - name: Prepare Linux release
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm package:release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ inputs.version }}-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            release/public/*.dmg
+            release/public/*.zip
+            release/public/*.exe
+            release/public/*.AppImage
+            release/public/*.deb
+            release/public/*source.tar.gz
+            release/public/SHA256SUMS
+          retention-days: 14
+          if-no-files-found: error

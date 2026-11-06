@@ -12,4 +12,8 @@ S/MIME signatures are not verified. Encrypted/opaque mail must be exported/decry
 
 No telemetry, upload service, account or automatic update check is included. The only app-initiated external navigation is the user's LibreOffice download action. Local history includes file paths/counts; clear it in Recent activity. Email bodies are not stored in activity. Reports deliberately include source/destination paths; review them before sharing.
 
-Do not include real customer mail or secrets in bug reports. Use the synthetic fixture helpers in `tests/fixtures.ts`. Report a vulnerability privately to the repository owner through your existing trusted channel; no public reporting endpoint is configured yet. Do not publish sensitive samples in an issue.
+## Reporting a vulnerability
+
+Use **Security → Report a vulnerability** on the [GitHub repository](https://github.com/exponentlabs/msg2pdf/security) for confidential reports. If private reporting is unavailable, open an issue requesting a confidential contact route without disclosing the vulnerability, customer files or secrets. Do not publish sensitive samples or exploit details in a public issue.
+
+Include the app version, operating system, reproduction steps and a synthetic sample where possible. Contributors can use `tests/fixtures.ts` to construct test data. Only the latest release is maintained; install current releases and keep optional LibreOffice installations updated.

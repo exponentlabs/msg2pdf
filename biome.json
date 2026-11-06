@@ -3,7 +3,6 @@
   "files": {
     "includes": [
       "**",
-      "!!legacy",
       "!!node_modules",
       "!!out",
       "!!release",
@@ -11,9 +10,6 @@
       "!!coverage",
       "!!playwright-report",
       "!!test-results",
-      "!!.venv",
-      "!!.pytest_cache",
-      "!!.ruff_cache",
       "!pnpm-lock.yaml",
       "!resources/third-party-notices.json"
     ]

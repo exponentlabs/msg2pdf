@@ -122,7 +122,7 @@ export function Settings({ workbench: w }: { workbench: Workbench }) {
       </div>
       <p className="version-line">
         msg2pdf {w.info?.version ?? '1.0.0'} · {w.info?.platform ?? 'Desktop'}{' '}
-        <span>Project licensing pending owner review</span>
+        <span>Apache License 2.0</span>
       </p>
     </section>
   );
