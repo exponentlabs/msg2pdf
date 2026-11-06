@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+launcher=$(readlink -f -- "$0")
+bin=$(CDPATH='' cd -- "$(dirname -- "$launcher")" && pwd)
+ELECTRON_RUN_AS_NODE=1 exec "$bin/../../msg2pdf" "$bin/../app.asar/out/terminal/index.cjs" "$@"

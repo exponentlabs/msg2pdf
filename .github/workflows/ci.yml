@@ -1,0 +1,103 @@
+name: Verify and package
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      installers:
+        description: Build review installers (never publish)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@9bbca1e9dc2902adb87e8780fe5c98796985a62d # v6.1.1
+        with:
+          version: 12.16.1
+          run_install: false
+      - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c # v1.13.0
+        if: runner.os == 'Windows'
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 bubblewrap
+      - run: pnpm install --frozen-lockfile
+      - name: Fetch the pinned desktop runtime before timed integration tests
+        run: pnpm exec install-electron --no
+      - name: Configure Chromium's sandbox on the ephemeral Linux runner
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+          echo "CHROME_DEVEL_SANDBOX=$GITHUB_WORKSPACE/node_modules/electron/dist/chrome-sandbox" >> "$GITHUB_ENV"
+      - run: pnpm typecheck && pnpm lint && pnpm test
+      - run: pnpm build
+      - name: Real Electron tests
+        if: runner.os != 'Linux'
+        run: pnpm test:e2e
+      - name: Real Electron tests with display server
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:e2e
+      - run: pnpm audit:production
+      - name: Build portable app
+        run: pnpm exec electron-builder --config electron-builder.config.cjs --dir --publish never
+      - name: Verify bundled app runtime
+        if: runner.os != 'Linux'
+        run: pnpm test:packaged
+      - name: Verify bundled app runtime with display server
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:packaged
+      - name: Build Windows and macOS installers on main, or on explicit dispatch
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/main' && runner.os != 'Linux') ||
+          (github.event_name == 'workflow_dispatch' && inputs.installers)
+        run: pnpm exec electron-builder --config electron-builder.config.cjs --publish never
+      - name: Upload installers
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/main' && runner.os != 'Linux') ||
+          (github.event_name == 'workflow_dispatch' && inputs.installers)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installers-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.deb
+          retention-days: 14
+          if-no-files-found: error
+      - name: Source archive
+        run: pnpm source:archive
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: verification-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            artifacts/*.png
+            playwright-report/
+            release/*source.tar.gz
+          retention-days: 7
+          if-no-files-found: ignore

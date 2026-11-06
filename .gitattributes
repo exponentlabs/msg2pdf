@@ -1,0 +1,17 @@
+* text=auto
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.svg text eol=lf
+resources/launchers/mac text eol=lf
+resources/launchers/linux text eol=lf
+resources/launchers/windows text eol=crlf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>msg2pdf stacked documents</title>
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#ccb3ff"/><stop offset="1" stop-color="#a381dc"/></linearGradient></defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#bg)"/>
+  <g fill="none" stroke="#27183d" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M340 434h-34a30 30 0 0 0-30 30v281a30 30 0 0 0 30 30h209a30 30 0 0 0 30-30v-36" opacity=".5"/>
+    <path d="M428 332h-32a30 30 0 0 0-30 30v281a30 30 0 0 0 30 30h209a30 30 0 0 0 30-30v-38" opacity=".8"/>
+    <path d="M490 240h142l116 116v193a30 30 0 0 1-30 30H490a30 30 0 0 1-30-30V270a30 30 0 0 1 30-30Z"/>
+    <path d="M632 240v116h116"/>
+    <path d="M533 431h142m-142 65h101" opacity=".75"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+{
+  "reference": "exponent-labs/atlas/public/fonts",
+  "snapshotDate": "2026-11-05",
+  "license": "OFL-1.1",
+  "upstream": "https://github.com/itfoundry/Poppins",
+  "fonts": [
+    {
+      "file": "poppins-regular.ttf",
+      "sha256": "cdedb1729acac414ed01744a11da7badb86adf13108e7bd3fa161b9323f7fe54"
+    },
+    {
+      "file": "poppins-medium.ttf",
+      "sha256": "fcff04f4bec2b3636f05ed894dc1f9a752c4cb587ee49857ec7a82abaf6ca016"
+    },
+    {
+      "file": "poppins-semibold.ttf",
+      "sha256": "dae40ca7b35fe7501bda2e4140a6860b1db47330be5d3c8ab6971fd83a70e9a5"
+    },
+    {
+      "file": "poppins-bold.ttf",
+      "sha256": "1984efdda0fbe207d7ac20feac2ba7c2768c92a90094b02a206c9d58cc30ff2e"
+    }
+  ]
+}

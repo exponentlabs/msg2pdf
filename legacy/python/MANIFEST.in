@@ -1,0 +1,9 @@
+include README.md pyproject.toml uv.lock .gitignore .gitattributes THIRD_PARTY_NOTICES.txt
+recursive-include src/msg2pdf *.py
+recursive-include tests *.py
+recursive-include scripts *.py
+recursive-include .github/workflows *.yml
+prune .venv
+prune build
+prune dist
+global-exclude __pycache__ *.py[cod] .DS_Store

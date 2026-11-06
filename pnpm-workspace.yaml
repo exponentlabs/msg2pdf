@@ -1,0 +1,13 @@
+packages:
+  - .
+minimumReleaseAge: 1440
+saveExact: true
+strictPeerDependencies: true
+autoInstallPeers: false
+allowBuilds:
+  electron: true
+  esbuild: true
+  electron-winstaller: false
+# Keep the current Electron security patch even during the dependency cooldown.
+minimumReleaseAgeExclude:
+  - electron@45.2.3

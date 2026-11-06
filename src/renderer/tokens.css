@@ -1,0 +1,129 @@
+/* Adapted from Atlas / src/theme.css (Graphite glass).
+   Keep visual roles here; styles.css owns the msg2pdf layout and components. */
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/poppins-regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/poppins-medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/poppins-semibold.ttf") format("truetype");
+}
+@font-face {
+  font-family: Poppins;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/poppins-bold.ttf") format("truetype");
+}
+
+:root {
+  color-scheme: dark;
+  --font-ui: Poppins, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-technical: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --paper: #19171b;
+  --document-paper: #ffffff;
+  --surface: #27262dc2;
+  --surface-input: #0c0b1142;
+  --ink: #f0edf5;
+  --muted: #b3adbf;
+  --subtle: #a198ab;
+  --line: #ede7fa1a;
+  --line-strong: #ccc7d23d;
+  --soft: #f1ebff0a;
+  --selected: #b48aff19;
+  --accent: #bea2ff;
+  --accent-ink: #27183d;
+  --accent-soft: #b28aee1a;
+  --accent-line: #be9aff3b;
+  --action: #f7a66a;
+  --action-hover: #ffba7b;
+  --on-action: #321b0c;
+  --disabled-fill: #3e3942;
+  --disabled-ink: #b1a8b9;
+  --focus: #c7b2ef;
+  --radius: 9px;
+  --radius-panel: 17px;
+  --sidebar-bg: #23212ac2;
+  --sidebar-ink: #f0edf5;
+  --sidebar-muted: #b4acbf;
+  --sidebar-subtle: #a198ab;
+  --sidebar-line: #ede7fa1a;
+  --sidebar-soft: #eeecf00a;
+  --sidebar-active: #b48aff19;
+  --nav-ink: #e0cdff;
+  --success: #b3d6c4;
+  --success-soft: #b0d8c110;
+  --success-line: #b0d8c130;
+  --warning: #f2c091;
+  --warning-soft: #f4a36514;
+  --warning-line: #f4a36538;
+  --danger: #e6b0bd;
+  --danger-soft: #e99bb314;
+  --danger-line: #e99bb338;
+  --file-email: #c5b2ed;
+  --file-email-soft: #b18de916;
+  --file-email-line: #f0eff214;
+  --file-pdf: #ffc18d;
+  --file-pdf-soft: #ffab6518;
+  --file-pdf-line: #ffab6528;
+  --file-sheet: #b3d6c4;
+  --file-sheet-soft: #b0d8c110;
+  --file-sheet-line: #b0d8c130;
+  --file-slides: #f2c091;
+  --file-slides-soft: #f4a36514;
+  --file-slides-line: #f4a36528;
+  --file-folder: #d6bcfa;
+  --file-folder-soft: #c196ff16;
+  --file-folder-line: #c196ff28;
+  --overlay: #08060dab;
+  --dialog-shadow: 0 24px 80px #04020a66;
+  --floating-shadow: 0 8px 28px #04020a40;
+  --thumb-shadow: 0 1px 2px #04020a40;
+  --toggle-thumb: #f0edf5;
+  --grid-line: #d0bcf505;
+  --canvas-background:
+    radial-gradient(ellipse at 10% 0%, #8559c63d, transparent 48%),
+    radial-gradient(ellipse at 85% 12%, #c5753f30, transparent 40%),
+    radial-gradient(ellipse at 78% 90%, #644a973b, transparent 47%),
+    linear-gradient(145deg, #262329, #19171b 55%, #201e23);
+  --panel-background: linear-gradient(145deg, #f7efff0e, #f9f3ff04), var(--surface);
+  --panel-shadow: 0 12px 32px #04020a29, inset 0 1px 0 #ffffff0d;
+  --brand-background: linear-gradient(135deg, #ccb3ff, #a381dc);
+  --nav-background: linear-gradient(120deg, #ad7dff2a, #9973dd12);
+  --action-background: linear-gradient(135deg, #ffba7b, #f79b55);
+  --action-background-hover: linear-gradient(135deg, #ffc99b, #ffad70);
+  --action-shadow: 0 5px 17px #ef944d24, inset 0 1px 0 #fff1df80;
+  --action-line: #ffd4a754;
+  --sidebar-background: linear-gradient(165deg, #f3ebff12, #f7f1ff05), var(--sidebar-bg);
+  --bar-background: linear-gradient(105deg, #e2e0e508, #edecef08), #2d2a3152;
+  --brand-shadow: 0 4px 14px #b58aff24, inset 0 1px 0 #ffffff65;
+  --nav-shadow: inset 0 1px 0 #f1e5ff0a, 0 3px 8px #00000008;
+  --control-background: #f2f1f40a;
+  --control-line: #edecef26;
+  --control-hover: #efedf112;
+  --control-shadow: inset 0 1px 0 #ffffff05, 0 2px 5px #00000006;
+  --dialog-background: #28252e;
+  --floating-background: #302b39;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --surface: #27262d;
+    --sidebar-background: #23212a;
+    --bar-background: #2d2a31;
+    --panel-background: #2b2830;
+    --panel-shadow: none;
+  }
+}

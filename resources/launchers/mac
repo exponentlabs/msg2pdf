@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+# Follow a user-created symlink so this launcher can be placed on PATH.
+launcher=$0
+while [ -L "$launcher" ]; do
+  base=$(CDPATH='' cd -- "$(dirname -- "$launcher")" && pwd)
+  link=$(readlink -- "$launcher")
+  case "$link" in /*) launcher=$link ;; *) launcher=$base/$link ;; esac
+done
+bin=$(CDPATH='' cd -- "$(dirname -- "$launcher")" && pwd)
+ELECTRON_RUN_AS_NODE=1 exec "$bin/../../MacOS/msg2pdf" "$bin/../app.asar/out/terminal/index.cjs" "$@"
