@@ -63,6 +63,12 @@ jobs:
       - run: pnpm audit:production
       - name: Build portable app
         run: pnpm exec electron-builder --config electron-builder.config.cjs --dir --publish never
+      - name: Configure the packaged Chromium sandbox on the ephemeral Linux runner
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo chown root:root release/linux-unpacked/chrome-sandbox
+          sudo chmod 4755 release/linux-unpacked/chrome-sandbox
       - name: Verify bundled app runtime
         if: runner.os != 'Linux'
         run: pnpm test:packaged

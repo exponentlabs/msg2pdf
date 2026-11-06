@@ -41,7 +41,8 @@ for (const document of [
     `Missing bundled documentation: ${document}`,
   );
 }
-const files = listPackage(archive);
+// ASAR listings use the host path separator, including backslashes on Windows.
+const files = listPackage(archive).map((file) => file.replaceAll('\\', '/'));
 assert.equal(
   files.filter((file) => /\/out\/renderer\/assets\/poppins-[^/]+\.ttf$/.test(file)).length,
   4,
