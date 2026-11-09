@@ -43,7 +43,8 @@
     "b1:verify": "node scripts/b1/run.mjs",
     "licenses:generate": "node scripts/licenses.mjs",
     "audit:production": "pnpm audit --prod --audit-level high",
-    "source:archive": "node scripts/source-archive.mjs"
+    "source:archive": "node scripts/source-archive.mjs",
+    "test:packaged:studio": "node scripts/test-packaged-studio.mjs"
   },
   "dependencies": {
     "@kenjiuno/decompressrtf": "0.1.3",
@@ -52,6 +53,8 @@
     "iconv-lite": "0.7.3",
     "lucide-react": "1.68.0",
     "mailparser": "3.14.2",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.5.438",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "rtf-stream-parser": "4.0.0",
@@ -72,8 +75,6 @@
     "electron-builder": "26.18.0",
     "electron-builder-squirrel-windows": "26.18.0",
     "esbuild": "0.28.2",
-    "pdf-lib": "1.17.1",
-    "pdfjs-dist": "6.5.438",
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "5.1.0"

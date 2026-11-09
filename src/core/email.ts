@@ -173,7 +173,10 @@ async function parseMsg(raw: Buffer): Promise<NormalizedEmail> {
     const signed = await parseEml(Buffer.from(mime.data));
     message.html = signed.html;
     message.text = signed.text;
-    message.attachments = signed.attachments;
+    // Retain the signed wrapper and other outer items for studio accountability.
+    // The wrapper is private signature material, not an ordinary export attachment.
+    mime.hidden = true;
+    message.attachments = [...attachments, ...signed.attachments];
   }
   return validateEmail(message);
 }

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { CHANNELS } from '../shared/channels';
 import type { ConversionEvent, DesktopApi } from '../shared/contracts';
+import type { StudioApi } from '../shared/studio';
 
 function invoke<T>(channel: string, value?: unknown): Promise<T> {
   return ipcRenderer.invoke(channel, value) as Promise<T>;
@@ -34,3 +35,24 @@ const api: DesktopApi = {
   },
 };
 contextBridge.exposeInMainWorld('desktop', Object.freeze(api));
+const studio: StudioApi = {
+  status: () => invoke('studio:status'),
+  create: () => invoke('studio:create'),
+  open: () => invoke('studio:open'),
+  close: () => invoke('studio:close'),
+  backup: () => invoke('studio:backup'),
+  import: () => invoke('studio:import'),
+  prepare: (request) => invoke('studio:prepare', request),
+  snapshot: (request) => invoke('studio:snapshot', request),
+  saveMarks: (request) => invoke('studio:saveMarks', request),
+  reviewPage: (request) => invoke('studio:reviewPage', request),
+  search: (request) => invoke('studio:search', request),
+  cancel: () => invoke('studio:cancel'),
+  apply: (request) => invoke('studio:apply', request),
+  reviewCandidate: (request) => invoke('studio:reviewCandidate', request),
+  approveRelease: (request) => invoke('studio:approveRelease', request),
+  publish: (request) => invoke('studio:publish', request),
+  openRelease: (request) => invoke('studio:openRelease', request),
+  disposition: (request) => invoke('studio:disposition', request),
+};
+contextBridge.exposeInMainWorld('studio', Object.freeze(studio));

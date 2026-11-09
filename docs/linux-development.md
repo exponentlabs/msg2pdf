@@ -46,6 +46,7 @@ Run these in the Fedora desktop terminal as your normal user. `sudo` is for inst
 
 ```sh
 sudo dnf install git tar gzip curl file which \
+  gcc qpdf poppler-utils util-linux \
   gtk3 nss alsa-lib libXScrnSaver libXtst mesa-libgbm \
   bubblewrap xorg-x11-server-Xvfb xorg-x11-xauth
 ```
@@ -174,3 +175,7 @@ Current state: the converter is implemented; the studio has eight ADRs and eleve
 Start with S01–S03 and work toward M1: one PDF captured in a case, marked, saved/reopened, sanitized, reviewed and published through the shared gates. Include Linux ARM64 in the engine and SQLite-binding spikes, not just macOS ARM64 or Linux x64. Do not change distribution licensing or add a paid dependency without resolving that choice explicitly.
 
 Keep the existing converter tests passing and add the plan's domain, integrity and redaction evidence as implementation arrives. See [verification](verification.md) and [distribution](distribution.md) for the existing build/release boundaries.
+
+## Implemented Fedora studio
+
+The B1–B8 workflow, system verifier packages, exact qualified versions, native filesystem limits and CLI are documented in the [studio guide](studio.md). QPDF is now installed system-wide; temporary extracted RPMs are unnecessary for production. LibreOffice 26.2.7.3 passes the local isolated preparation checks. Use Xvfb for unattended Electron verification only. Batch feature-branch changes and run local checks before requesting native CI; do not repeatedly trigger the multi-platform Actions matrix while iterating.

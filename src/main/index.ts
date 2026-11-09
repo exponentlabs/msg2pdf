@@ -122,7 +122,14 @@ async function createWindow(): Promise<void> {
     },
   });
   const store = new AppStore(app.getPath('userData'));
-  dispose = registerDesktopApi(mainWindow, store, origin);
+  const disposeDesktop = registerDesktopApi(mainWindow, store, origin);
+  const disposeStudio =
+    process.platform === 'linux' && process.arch === 'arm64'
+      ? (await import('./studio/service')).registerStudioApi(mainWindow, origin)
+      : undefined;
+  dispose = async () => {
+    await Promise.all([disposeDesktop(), disposeStudio?.()]);
+  };
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (originKey(url) !== origin) event.preventDefault();
   });

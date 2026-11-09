@@ -11,6 +11,7 @@ import { FuseState, FuseV1Options, getCurrentFuseWire } from '@electron/fuses';
 import { chromium } from '@playwright/test';
 import { PDFArray, PDFDocument, PDFName } from 'pdf-lib';
 import { fixtures } from './fixtures.mjs';
+import { qualify } from './qualification.mjs';
 
 const execute = promisify(execFile);
 const root = resolve('artifacts/b1/results', String(Date.now()));
@@ -23,11 +24,11 @@ const report = {
   platform: process.platform,
   arch: process.arch,
   releaseEnabled: false,
-  scope: 'Synthetic compatibility experiment only',
+  scope: 'Fedora ARM64 raster-v1 profile qualification; no publication approval',
   checks: [],
   limitations: [
-    'No production redaction service, complete adversarial qualification, or release-enabled profile.',
-    'Poppler is a host prerequisite, not bundled; MuPDF is externally installed AGPL evaluation only.',
+    'No production case/review/publication service; profile qualification does not authorize sharing.',
+    'QPDF and Poppler are system prerequisites, not bundled; MuPDF is excluded from the selected profile.',
     'PDF.js DOM text selection/rendering proven; a production review editor is not implemented.',
     'Linux lock adapter only; no Windows/macOS or power-loss durability claim.',
   ],
@@ -107,6 +108,7 @@ function ppm(buffer) {
   return { width, height, pixels: buffer.subarray(offset) };
 }
 async function inspect(path, expected, { raster = false } = {}) {
+  const fidelity = [];
   const info = await checker('pdfinfo', [path]);
   assert.match(info.stdout, new RegExp(`Pages:\\s+${expected.pages.length}\\b`));
   const text = (await checker('pdftotext', [path, '-'])).stdout;
@@ -115,6 +117,10 @@ async function inspect(path, expected, { raster = false } = {}) {
     const attachments = await checker('pdfdetach', ['-list', path]);
     assert.match(attachments.stdout, /^0 embedded files/);
     assert(!info.stdout.includes('METADATA_CANARY'));
+    const policyPath = `${path}.policy.json`;
+    await writeFile(policyPath, JSON.stringify(expected));
+    const policy = JSON.parse((await checker('raster', [path, policyPath])).stdout);
+    assert.equal(policy.independentlyAllowlisted, true);
     // Supplement Poppler with decoded object inspection; this is not independent of the raster assembler.
     const doc = await PDFDocument.load(await readFile(path));
     for (const [key] of doc.catalog.entries())
@@ -137,15 +143,17 @@ async function inspect(path, expected, { raster = false } = {}) {
       String(index + 1),
       '-singlefile',
       '-cropbox',
+      '-scale-dimension-before-rotation',
       '-scale-to-x',
-      String(Math.round(page.width)),
+      String(Math.ceil(page.width * 2)),
       '-scale-to-y',
-      String(Math.round(page.height)),
+      String(Math.ceil(page.height * 2)),
       path,
       output,
     ]);
     const image = ppm(await readFile(`${output}.ppm`));
-    for (const [x, y, width, height] of page.regions) {
+    for (const region of page.regions) {
+      const [x, y, width, height] = region.map((value) => value * 2);
       for (let py = Math.ceil(y) + 2; py < Math.floor(y + height) - 2; py++) {
         for (let px = Math.ceil(x) + 2; px < Math.floor(x + width) - 2; px++) {
           const at = (py * image.width + px) * 3;
@@ -156,7 +164,67 @@ async function inspect(path, expected, { raster = false } = {}) {
         }
       }
     }
-    if (index === 1)
+    if (raster && expected.sourcePath) {
+      const sourceOutput = `${path}-reference-${index + 1}`;
+      await checker('pdftoppm', [
+        '-f',
+        String(index + 1),
+        '-l',
+        String(index + 1),
+        '-singlefile',
+        '-cropbox',
+        '-scale-dimension-before-rotation',
+        '-scale-to-x',
+        String(image.width),
+        '-scale-to-y',
+        String(image.height),
+        expected.sourcePath,
+        sourceOutput,
+      ]);
+      const source = ppm(await readFile(`${sourceOutput}.ppm`));
+      assert.equal(source.width, image.width);
+      assert.equal(source.height, image.height);
+      let total = 0;
+      let count = 0;
+      let changed = 0;
+      let maxTileMean = 0;
+      for (let top = 0; top < image.height; top += 32) {
+        for (let left = 0; left < image.width; left += 32) {
+          let tileSum = 0;
+          let tileCount = 0;
+          for (let y = top; y < Math.min(top + 32, image.height); y++)
+            for (let x = left; x < Math.min(left + 32, image.width); x++) {
+              if (
+                page.regions.some(
+                  ([rx, ry, rw, rh]) =>
+                    x >= rx * 2 - 2 &&
+                    y >= ry * 2 - 2 &&
+                    x <= (rx + rw) * 2 + 2 &&
+                    y <= (ry + rh) * 2 + 2,
+                )
+              )
+                continue;
+              const at = (y * image.width + x) * 3;
+              const difference =
+                (Math.abs(source.pixels[at] - image.pixels[at]) +
+                  Math.abs(source.pixels[at + 1] - image.pixels[at + 1]) +
+                  Math.abs(source.pixels[at + 2] - image.pixels[at + 2])) /
+                3;
+              tileSum += difference;
+              tileCount++;
+              total += difference;
+              count++;
+              if (difference > 64) changed++;
+            }
+          if (tileCount) maxTileMean = Math.max(maxTileMean, tileSum / tileCount);
+        }
+      }
+      const result = { mean: total / count, changedRatio: changed / count, maxTileMean };
+      // Source interpreter differences are recorded, not mistaken for changes to the reviewed snapshot.
+      // The QPDF worker separately requires exact unmarked RGB preservation against that snapshot.
+      fidelity.push(result);
+    }
+    if (index === 1 && expected.reusedImage)
       assert(
         image.pixels.some(
           (value, at) =>
@@ -175,6 +243,7 @@ async function inspect(path, expected, { raster = false } = {}) {
   }
   return {
     text,
+    fidelity,
     sha256: createHash('sha256')
       .update(await readFile(path))
       .digest('hex'),
@@ -302,6 +371,20 @@ try {
     return canvas.toDataURL('image/png').split(',')[1];
   });
   const samples = await fixtures(imageBase64);
+  const scanSource = await page.evaluate(
+    (bytes) => globalThis.b1Viewer({ bytes, marks: [] }),
+    samples[0].bytes.toString('base64'),
+  );
+  const scanDocument = await PDFDocument.create();
+  const scanImage = await scanDocument.embedPng(Buffer.from(scanSource.pages[0].png, 'base64'));
+  scanDocument.addPage([400, 400]).drawImage(scanImage, { x: 0, y: 0, width: 400, height: 400 });
+  samples.push({
+    name: 'image-only',
+    marks: samples[0].marks,
+    bytes: Buffer.from(await scanDocument.save({ useObjectStreams: false })),
+    structural: false,
+    rasterized: true,
+  });
   const modulePath = process.env.B1_MUPDF_MODULE;
   if (!modulePath)
     throw new Error(
@@ -343,7 +426,25 @@ try {
     requiredAssetsPresent: true,
     nodeInspectorDisabled: true,
   });
+  const qpdfBinary = resolve(process.env.B1_QPDF_BINARY || '/usr/bin/qpdf');
+  report.qpdf = {
+    version: (await execute(qpdfBinary, ['--version'])).stdout.trim(),
+    binarySha256: createHash('sha256')
+      .update(await readFile(qpdfBinary))
+      .digest('hex'),
+  };
+  assert.equal(
+    report.qpdf.version,
+    'qpdf version 12.3.2\nRun qpdf --copyright to see copyright and license information.',
+  );
+  assert.match(report.host.poppler, /^pdftoppm version 26\.01\.0\b/);
   const isolated = [
+    '--ro-bind',
+    qpdfBinary,
+    '/qpdf',
+    '--setenv',
+    'B1_QPDF_BINARY',
+    '/qpdf',
     '--unshare-all',
     '--die-with-parent',
     '--ro-bind',
@@ -359,6 +460,9 @@ try {
     '/proc',
     '--dev',
     '/dev',
+    '--ro-bind',
+    '/etc/fonts',
+    '/etc/fonts',
     '--ro-bind',
     packageRoot,
     '/package',
@@ -413,17 +517,23 @@ try {
     hostLoopbackUnreachable: true,
   });
 
+  let golden;
   for (const sample of samples) {
     const input = join(root, `${sample.name}.pdf`);
     await writeFile(input, sample.bytes, { mode: 0o600 });
+    await checker('qpdf', ['--check', input]);
     const rendered = await page.evaluate((input) => globalThis.b1Viewer(input), {
       bytes: sample.bytes.toString('base64'),
       marks: sample.marks,
     });
+    rendered.sourcePath = input;
+    rendered.reusedImage = sample.name === 'shared-image';
     assert(rendered.pages.every((item) => item.geometry));
-    assert(rendered.pages[0].text.includes('B1_SECRET_CANARY'));
-    assert(rendered.pages[0].selection.text.includes('PUBLIC NEIGHBOR'));
-    assert(rendered.pages[0].selection.width > 0 && rendered.pages[0].selection.height > 0);
+    if (!sample.rasterized) {
+      assert(rendered.pages[0].text.includes('B1_SECRET_CANARY'));
+      assert(rendered.pages[0].selection.text.includes('PUBLIC NEIGHBOR'));
+      assert(rendered.pages[0].selection.width > 0 && rendered.pages[0].selection.height > 0);
+    } else assert.equal(rendered.pages[0].text, '');
     const output = join(root, `${sample.name}-raster.pdf`);
     const raster = await page.evaluate(
       (pages) => globalThis.b1Harness.assemble(pages),
@@ -431,13 +541,16 @@ try {
     );
     await writeFile(output, Buffer.from(raster, 'base64'), { mode: 0o600 });
     const rasterEvidence = await inspect(output, rendered, { raster: true });
+    golden ??= { path: output, expected: rendered };
     check(`raster:${sample.name}`, {
       sha256: rasterEvidence.sha256,
       pages: rendered.pages.length,
       pdfjs: rendered.version,
       geometryRoundTrip: true,
-      selectableText: true,
+      selectableText: !sample.rasterized,
+      fidelity: rasterEvidence.fidelity,
     });
+    if (!sample.structural) continue;
     await writeFile(join(root, `${sample.name}.json`), JSON.stringify(sample.marks));
     const structural = join(root, `${sample.name}-structural.pdf`);
     await execute(
@@ -472,6 +585,7 @@ try {
       remaining,
     });
   }
+  await qualify({ checker, page, root, golden, check, inspect });
   // Exercise the same independent-checker entry point with an invalid PDF and a missing binary.
   await writeFile(join(root, 'malformed.pdf'), 'not a PDF');
   await assert.rejects(() => inspect(join(root, 'malformed.pdf'), { pages: [] }, { raster: true }));
@@ -489,7 +603,9 @@ try {
     documentHttpRequests: 0,
   });
   await page.screenshot({ path: join(root, 'viewer.png') });
-  report.status = 'compatibility-passed-not-release-qualified';
+  assert.equal(contract.profileQualified, true);
+  report.profileQualified = true;
+  report.status = 'profile-qualified-fedora-arm64';
 } catch (error) {
   report.status = 'failed';
   report.failure = error.stack;

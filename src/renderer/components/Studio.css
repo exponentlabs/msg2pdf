@@ -1,0 +1,171 @@
+.studio {
+  overflow: auto;
+}
+.studio-heading,
+.studio-case,
+.studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.studio-heading {
+  justify-content: space-between;
+}
+.studio h1 {
+  font-size: 26px;
+}
+.studio p {
+  line-height: 1.65;
+}
+.studio button,
+.studio input,
+.studio select {
+  font: inherit;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.studio button {
+  cursor: pointer;
+}
+.studio button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.studio button[aria-pressed="true"] {
+  outline: 2px solid #317853;
+}
+.studio label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.studio-profile {
+  padding: 14px;
+  background: var(--success-soft);
+  border-radius: 12px;
+}
+.studio-error {
+  padding: 14px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: 10px;
+}
+.studio-stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+.studio-stages section {
+  padding: 12px;
+  background: var(--soft);
+  border-radius: 10px;
+}
+.studio-stages h2 {
+  font-size: 15px;
+}
+.studio-workspace {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.studio-documents {
+  display: grid;
+  gap: 12px;
+}
+.studio-documents button {
+  width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.studio-documents small {
+  display: block;
+  margin-top: 8px;
+}
+.studio-canvas-scroll {
+  overflow: auto;
+  max-height: 65vh;
+  margin: 16px 0;
+  border: 1px solid #ccd3db;
+  background: #e3e8e5;
+  padding: 12px;
+}
+.studio-canvas {
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  flex-shrink: 0;
+  cursor: crosshair;
+}
+.studio-canvas img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.studio-mark {
+  position: absolute;
+  background: rgb(18 28 22 / 55%);
+  outline: 2px solid #bf4c3e;
+  pointer-events: none;
+}
+.studio-text {
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #ccd3db;
+  white-space: pre-wrap;
+  user-select: text;
+}
+.studio-text span {
+  display: block;
+}
+.studio-hit {
+  display: flex;
+}
+.studio-mark-list {
+  padding-left: 22px;
+}
+.studio-mark-list li {
+  margin: 8px 0;
+}
+.studio-thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.studio-thumbnails button {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.studio-thumbnails img {
+  height: 64px;
+  object-fit: contain;
+  background: white;
+}
+.studio-thumbnails [aria-current="page"] {
+  outline: 2px solid var(--focus);
+}
+.studio button:focus-visible,
+.studio input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.studio-hash,
+.studio-stages p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1100px) {
+  .studio-workspace {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+}

@@ -13,12 +13,13 @@ import { useEffect, useState } from 'react';
 import { Activity } from './components/Activity';
 import { PreviewDialog } from './components/PreviewDialog';
 import { Settings } from './components/Settings';
+import { Studio } from './components/Studio';
 import { Workbench } from './components/Workbench';
 import { useWorkbench } from './useWorkbench';
 
 export function App() {
   const w = useWorkbench();
-  const [view, setView] = useState<'convert' | 'activity' | 'settings'>('convert');
+  const [view, setView] = useState<'convert' | 'activity' | 'settings' | 'studio'>('convert');
   useEffect(() => {
     function shortcut(event: KeyboardEvent): void {
       if (!(event.metaKey || event.ctrlKey) || w.busy) return;
@@ -39,6 +40,7 @@ export function App() {
     { id: 'convert', label: 'Converter', icon: ArrowRightLeft },
     { id: 'activity', label: 'Recent activity', icon: History },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
+    { id: 'studio', label: 'Redaction studio', icon: ShieldCheck },
   ] as const;
   return (
     <div className={`app-shell ${w.info?.platform === 'darwin' ? 'platform-mac' : ''}`}>
@@ -100,7 +102,9 @@ export function App() {
                 ? 'Converter'
                 : view === 'activity'
                   ? 'Recent activity'
-                  : 'Settings'}
+                  : view === 'studio'
+                    ? 'Redaction studio'
+                    : 'Settings'}
             </span>
           </div>
           <span className="local-badge">
@@ -121,7 +125,9 @@ export function App() {
             </button>
           </div>
         )}
-        {view === 'convert' ? (
+        {view === 'studio' ? (
+          <Studio />
+        ) : view === 'convert' ? (
           <Workbench workbench={w} openSettings={() => setView('settings')} />
         ) : (
           <div className="page-body">

@@ -4,7 +4,9 @@ import { runConversion } from '../core/engine';
 import { atomicWrite } from '../core/filesystem';
 import { detectOffice } from '../core/office';
 import { createPlan } from '../core/planner';
+import { assertLegacyDestination } from '../core/studio/paths';
 import { errorMessage } from '../shared/errors';
+import { studioFailure } from '../shared/studio-errors';
 import { parseArguments } from '../terminal/arguments';
 import { createServices } from './services';
 import { AppStore } from './store';
@@ -24,12 +26,20 @@ export async function runCliWorker(): Promise<void> {
   });
   let code = 2;
   try {
+    const raw = process.argv.slice(offset + 1);
+    if (raw[0] === 'studio') {
+      const { runStudioCli } = await import('./studio/cli');
+      emit(await runStudioCli(raw.slice(1), controller.signal));
+      code = 0;
+      return;
+    }
     const args = parseArguments(process.argv.slice(offset + 1), app.getVersion());
     if (typeof args === 'number') {
       app.exit(args);
       return;
     }
     const plan = await createPlan(args.request, controller.signal);
+    if (args.report) await assertLegacyDestination(args.report);
     code = 1;
     if (
       args.report &&
@@ -60,7 +70,12 @@ export async function runCliWorker(): Promise<void> {
     code = summary.cancelled ? 130 : summary.failed ? 1 : 0;
   } catch (error) {
     if (controller.signal.aborted) code = 130;
-    emit({ type: 'error', message: errorMessage(error) });
+    emit({
+      type: 'error',
+      ...(process.argv[offset + 1] === 'studio'
+        ? studioFailure(error)
+        : { message: errorMessage(error) }),
+    });
   } finally {
     process.removeListener('SIGINT', abort);
     process.removeListener('SIGTERM', abort);

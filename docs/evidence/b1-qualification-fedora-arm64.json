@@ -1,0 +1,581 @@
+{
+  "generatedAt": "2026-11-09T22:42:53.372Z",
+  "platform": "linux",
+  "arch": "arm64",
+  "releaseEnabled": false,
+  "scope": "Fedora ARM64 raster-v1 profile qualification; no publication approval",
+  "checks": [
+    {
+      "name": "packaged-sqlite-and-os-lock",
+      "status": "passed",
+      "detail": {
+        "settings": {
+          "journal": "delete",
+          "synchronous": 2,
+          "integrity": "ok",
+          "sqlite": "3.53.4",
+          "artifactAndDirectorySync": true
+        },
+        "contention": "CASE_BUSY",
+        "recoveryOwners": 1,
+        "committedRows": 1,
+        "uncommittedRows": 0,
+        "childDidNotRetainLock": true,
+        "stableLockInode": true,
+        "symlinkRejected": true
+      }
+    },
+    {
+      "name": "packaged-assets-and-fuses",
+      "status": "passed",
+      "detail": {
+        "dependenciesExcluded": true,
+        "noBundledMuPdf": true,
+        "requiredAssetsPresent": true,
+        "nodeInspectorDisabled": true
+      }
+    },
+    {
+      "name": "structural-worker-isolation",
+      "status": "passed",
+      "detail": {
+        "unrelatedCheckoutUnreadable": true,
+        "hostLoopbackUnreachable": true
+      }
+    },
+    {
+      "name": "raster:text",
+      "status": "passed",
+      "detail": {
+        "sha256": "95d75eccc00cbc16cd4e848d67de2d559585f3bb380eca31e24e96ef89cd373a",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.4960517534899571,
+            "changedRatio": 0.0032980592441266597,
+            "maxTileMean": 26.0126953125
+          }
+        ]
+      }
+    },
+    {
+      "name": "structural-removal:text",
+      "status": "passed",
+      "detail": {
+        "sha256": "067de4d5401a3cd9b46921516d6f37b23077a3c64b8cb9179fd9c87158b0be50",
+        "sanitizationQualified": false
+      }
+    },
+    {
+      "name": "raster:rotated-cropped",
+      "status": "passed",
+      "detail": {
+        "sha256": "e229615e2876a13e233421e10f843a98d134a9825f52c97c7f8fe169c73f8cb3",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.6171189530443459,
+            "changedRatio": 0.003974440158885499,
+            "maxTileMean": 18.0126953125
+          }
+        ]
+      }
+    },
+    {
+      "name": "structural-removal:rotated-cropped",
+      "status": "passed",
+      "detail": {
+        "sha256": "f73dff3c9b5ee92ebfab7a333263a8b259e2c7d68f90aa06781bba7d02c63e87",
+        "sanitizationQualified": false
+      }
+    },
+    {
+      "name": "raster:user-unit",
+      "status": "passed",
+      "detail": {
+        "sha256": "1fafba25be5f2d586e23455c8a411d710994f90fb2a7aeb9f0d672dedd3768f7",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.3789163157590675,
+            "changedRatio": 0.0022504307751914274,
+            "maxTileMean": 54.775390625
+          }
+        ]
+      }
+    },
+    {
+      "name": "structural-removal:user-unit",
+      "status": "passed",
+      "detail": {
+        "sha256": "fcfed366fedbc07119c1a29151ead04ba0d9821be6540defad3193b7ed4c9938",
+        "sanitizationQualified": false
+      }
+    },
+    {
+      "name": "raster:hidden-attachment",
+      "status": "passed",
+      "detail": {
+        "sha256": "95d75eccc00cbc16cd4e848d67de2d559585f3bb380eca31e24e96ef89cd373a",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.4960517534899571,
+            "changedRatio": 0.0032980592441266597,
+            "maxTileMean": 26.0126953125
+          }
+        ]
+      }
+    },
+    {
+      "name": "structural-removal:hidden-attachment",
+      "status": "passed",
+      "detail": {
+        "sha256": "2dd44293794a67086c3eae1c3515e5e090a82ab093bc5e7b6a5a4c8dbd0a2f16",
+        "sanitizationQualified": false,
+        "remaining": {
+          "hiddenTextRetained": true,
+          "attachments": "1 embedded files\n1: private-name.txt",
+          "sourceMetadataRetained": true
+        }
+      }
+    },
+    {
+      "name": "raster:shared-image",
+      "status": "passed",
+      "detail": {
+        "sha256": "c81066c820fc5bbd851a2d62c85f9887e7d4e817971db213a1a64cb3bcac8bb9",
+        "pages": 2,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.5159739339849851,
+            "changedRatio": 0.0034305142371440713,
+            "maxTileMean": 26.0126953125
+          },
+          {
+            "mean": 0.08081875000000005,
+            "changedRatio": 0.0009078125,
+            "maxTileMean": 5.6650390625
+          }
+        ]
+      }
+    },
+    {
+      "name": "structural-removal:shared-image",
+      "status": "passed",
+      "detail": {
+        "sha256": "3a5213f97bdf407a746f5d76cd0a5d495ddf0d46d01e4f7e195522e4220ebaf9",
+        "sanitizationQualified": false
+      }
+    },
+    {
+      "name": "raster:zero-marks",
+      "status": "passed",
+      "detail": {
+        "sha256": "78dffbe1db9b2e67e8b22b7f94d5d049aaf58510d78a0711b457c3e797963b03",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.8309869791666641,
+            "changedRatio": 0.005084375,
+            "maxTileMean": 27.423828125
+          }
+        ]
+      }
+    },
+    {
+      "name": "structural-removal:zero-marks",
+      "status": "passed",
+      "detail": {
+        "sha256": "52eafb4e8d14194e7b2eddbb1f198d713c54ce786c6a188070c7765a3a38b564",
+        "sanitizationQualified": false
+      }
+    },
+    {
+      "name": "raster:forms-actions-tags",
+      "status": "passed",
+      "detail": {
+        "sha256": "f246001e00f73fa27c582de4e7c654cbd65f88d4f47d317c88b4f6886c350128",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 1.6455512427647283,
+            "changedRatio": 0.009443105209397343,
+            "maxTileMean": 55.62890625
+          }
+        ]
+      }
+    },
+    {
+      "name": "raster:fragmented-clipped-vector",
+      "status": "passed",
+      "detail": {
+        "sha256": "8621f4c217c4936503d62c4086f2deeb632936b7363ec6b577f37b8249e3aa5c",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.534722161051165,
+            "changedRatio": 0.003555164060779564,
+            "maxTileMean": 26.0126953125
+          }
+        ]
+      }
+    },
+    {
+      "name": "raster:old-revision",
+      "status": "passed",
+      "detail": {
+        "sha256": "95d75eccc00cbc16cd4e848d67de2d559585f3bb380eca31e24e96ef89cd373a",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.4960517534899571,
+            "changedRatio": 0.0032980592441266597,
+            "maxTileMean": 26.0126953125
+          }
+        ]
+      }
+    },
+    {
+      "name": "raster:mixed-rotations-layers",
+      "status": "passed",
+      "detail": {
+        "sha256": "ed9b8f79b28cbd14d075018d5aa6a6d71a4e8a59fa4cdd5c084068afe89f2640",
+        "pages": 3,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.4960517534899571,
+            "changedRatio": 0.0032980592441266597,
+            "maxTileMean": 26.0126953125
+          },
+          {
+            "mean": 0.4227934426229508,
+            "changedRatio": 0.0026824043715846994,
+            "maxTileMean": 33.44921875
+          },
+          {
+            "mean": 0.6808498360655738,
+            "changedRatio": 0.004032349726775956,
+            "maxTileMean": 54.1171875
+          }
+        ]
+      }
+    },
+    {
+      "name": "raster:fractional-edge",
+      "status": "passed",
+      "detail": {
+        "sha256": "424aecd81a572c72dd8a53093e3c8e84b770fbd2fcc9a95e8ac81bf0b7d1432c",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.5825077248403926,
+            "changedRatio": 0.0036124628333150804,
+            "maxTileMean": 38.7685546875
+          }
+        ]
+      }
+    },
+    {
+      "name": "raster:image-only",
+      "status": "passed",
+      "detail": {
+        "sha256": "95d75eccc00cbc16cd4e848d67de2d559585f3bb380eca31e24e96ef89cd373a",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": false,
+        "fidelity": [
+          {
+            "mean": 0,
+            "changedRatio": 0,
+            "maxTileMean": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "policy-reject:script",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:tags",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:attachments",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:metadata",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:unreferenced-asset",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:previous-revision",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:image-mask",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:hidden-content",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "policy-reject:trailing-payload",
+      "status": "passed",
+      "detail": {
+        "rejectedByPackagedWorker": true
+      }
+    },
+    {
+      "name": "policy-reject:missing-mask",
+      "status": "passed",
+      "detail": {
+        "rejectedByPackagedWorker": true
+      }
+    },
+    {
+      "name": "policy-reject:unmarked-pixel-change",
+      "status": "passed",
+      "detail": {
+        "rejectedByPackagedWorker": true
+      }
+    },
+    {
+      "name": "source-reject:password-protected",
+      "status": "passed",
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "source-reject:repair-required",
+      "status": "passed",
+      "detail": {
+        "qpdfWarningsAreFailure": true
+      }
+    },
+    {
+      "name": "source-reject:page-limit",
+      "status": "passed",
+      "detail": {
+        "rejectedBeforeRendering": true
+      }
+    },
+    {
+      "name": "source-reject:pixel-limit",
+      "status": "passed",
+      "detail": {
+        "rejectedBeforeAllocation": true
+      }
+    },
+    {
+      "name": "negative-checker-and-offline",
+      "status": "passed",
+      "detail": {
+        "malformedRejected": true,
+        "timedOutCheckerRejected": true,
+        "missingCheckerRejected": true,
+        "documentHttpRequests": 0
+      }
+    }
+  ],
+  "limitations": [
+    "No production case/review/publication service; profile qualification does not authorize sharing.",
+    "QPDF and Poppler are system prerequisites, not bundled; MuPDF is excluded from the selected profile.",
+    "PDF.js DOM text selection/rendering proven; a production review editor is not implemented.",
+    "Linux lock adapter only; no Windows/macOS or power-loss durability claim."
+  ],
+  "host": {
+    "os": "NAME=\"Fedora Linux\"\nVERSION=\"44 (Workstation Edition)\"\nRELEASE_TYPE=stable\nID=fedora\nVERSION_ID=44\nVERSION_CODENAME=\"\"\nPRETTY_NAME=\"Fedora Linux 44 (Workstation Edition)\"\nANSI_COLOR=\"0;38;2;60;110;180\"\nLOGO=fedora-logo-icon\nCPE_NAME=\"cpe:/o:fedoraproject:fedora:44\"\nDEFAULT_HOSTNAME=\"fedora\"\nHOME_URL=\"https://fedoraproject.org/\"\nDOCUMENTATION_URL=\"https://docs.fedoraproject.org/en-US/fedora/f44/\"\nSUPPORT_URL=\"https://ask.fedoraproject.org/\"\nBUG_REPORT_URL=\"https://bugzilla.redhat.com/\"\nREDHAT_BUGZILLA_PRODUCT=\"Fedora\"\nREDHAT_BUGZILLA_PRODUCT_VERSION=44\nREDHAT_SUPPORT_PRODUCT=\"Fedora\"\nREDHAT_SUPPORT_PRODUCT_VERSION=44\nSUPPORT_END=2027-05-19\nVARIANT=\"Workstation Edition\"\nVARIANT_ID=workstation\n",
+    "kernel": "7.2.15-200.fc44.aarch64",
+    "selinux": "Enforcing",
+    "poppler": "pdftoppm version 26.01.0\nCopyright 2005-2026 The Poppler Developers - http://poppler.freedesktop.org\nCopyright 1996-2011, 2022 Glyph & Cog, LLC"
+  },
+  "runtime": {
+    "packaged": true,
+    "versions": {
+      "node": "24.22.2",
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.9",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.2",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "150",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "0.0.0",
+      "simdjson": "4.6.11",
+      "simdutf": "7.7.0",
+      "sqlite": "3.53.4",
+      "tz": "2026e",
+      "undici": "7.30.1",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "15.6.75.27-electron.0",
+      "zlib": "1.3.2.1-motley",
+      "zstd": "1.6.0",
+      "electron": "45.2.3",
+      "chrome": "156.0.8078.80"
+    }
+  },
+  "structuralEvaluation": {
+    "name": "mupdf",
+    "version": "1.28.6",
+    "license": "AGPL-3.0-or-later",
+    "bundled": false
+  },
+  "packageHashes": {
+    "asar": "94372a9215883549cabd8fb8353df381227aef3c954d3a3f42f26ebdda91cd89",
+    "lock": "200f7c080dee7c38d34754772d477c09c2893dc9d085f441e2add81d27221e29"
+  },
+  "qpdf": {
+    "version": "qpdf version 12.3.2\nRun qpdf --copyright to see copyright and license information.",
+    "binarySha256": "e5f6e04c6c5cee49f47d7383bc25520914c77f42ecbd2ef4278459777d8eaa12"
+  },
+  "contract": {
+    "id": "fedora-raster-v1",
+    "status": "locally-qualified-profile",
+    "releaseEnabled": false,
+    "engine": "PDF.js 6.5.438 reviewed RGB snapshot with outward-rounded masks; pdf-lib 1.17.1 fresh image-only assembly",
+    "independentChecks": "QPDF 12.3.2 JSON object/stream inspection and exact canonical-byte policy; Poppler 26.01.0 render/text/attachment checks, invoked in packaged Electron Node worker inside bubblewrap",
+    "supplementalChecks": "Source rendering differences between PDF.js and Poppler are diagnostic. Candidate unmarked RGB must exactly match the reviewed PDF.js snapshot; this is independently checked from QPDF decoded image data.",
+    "limits": {
+      "pages": 8,
+      "pagePoints": 2000,
+      "rasterScale": 2,
+      "checkerTimeoutMs": 15000,
+      "aggregatePixels": 4000000,
+      "inputBytes": 104857600,
+      "nativeAddressSpaceBytes": 536870912,
+      "nativeCpuSeconds": 15,
+      "nativeOutputBytes": 100663296
+    },
+    "fixtures": [
+      "text",
+      "rotated-cropped",
+      "user-unit",
+      "hidden-attachment",
+      "shared-image",
+      "zero-marks",
+      "forms-actions-tags",
+      "fragmented-clipped-vector",
+      "old-revision",
+      "mixed-rotations-layers",
+      "image-only",
+      "fractional-edge"
+    ],
+    "runtimeChecks": [
+      "strict independent input parse without repairs/password",
+      "independent output object and decoded-stream allowlist",
+      "exact canonical byte serialization with no unreachable objects/history/gaps/trailing payload",
+      "no unused compressed stream bytes",
+      "empty output text layer and no embedded attachments",
+      "fixed neutral metadata only",
+      "exact black mask pixels and exact unmarked reviewed-snapshot RGB",
+      "independent every-page parsing/rendering",
+      "known supported checker versions and no network"
+    ],
+    "qualificationPending": [
+      "Production case/approval gates are B2-B6 work; this profile does not enable publication.",
+      "Other OS/architectures and stronger power-loss guarantees require native qualification."
+    ],
+    "profileQualified": true,
+    "distribution": "Fedora 44 ARM64 system prerequisites: qpdf, poppler-utils, bubblewrap, util-linux. No QPDF/Poppler binary is bundled, no runtime download; missing or unqualified tools block processing.",
+    "supportedTarget": "Fedora 44 ARM64 local filesystem",
+    "sourcePolicy": "At most 8 renderable pages; no password protection or parser repairs; all source pages reviewed as fixed PDF.js snapshots. Image-only output loses text, tags, signatures and accessibility. No native originals, attachments, OCR, forms, actions or metadata are copied.",
+    "sha256": "4afcf785aaeb9183f44cfc82e8182d8f6148f0cca2ba4d08b36ce2434a6e2693"
+  },
+  "sourceHashes": {
+    "build.mjs": "82bd41383a32c44e2e7bfe094be210d53fc92ce4784ce0440b830da5dde49a6c",
+    "electron-builder.cjs": "7b2f38dde1cacbfd6fdb28bf719aa60b152038d646285a7739f751b0d4e3e33f",
+    "evaluation-contract.json": "4afcf785aaeb9183f44cfc82e8182d8f6148f0cca2ba4d08b36ce2434a6e2693",
+    "fixtures.mjs": "bc77742e959eda8767189c29e5d6ea783b26ea873a93559cd770dcca81f399e7",
+    "harness.css": "8ed8d3a8c0a77cbcc84436435fa61c6d4afa762a3432078c1bb3181eaf118b03",
+    "lock.c": "2f51c2272d4d92a250d9f69687dac58553506e20c0545e5aa1f4ca15837a835d",
+    "main.mjs": "09440eda5dddc482a7b85f012c94160d711e27cdcbec826b05ac4e17202a8f6c",
+    "preload.cjs": "155f029bc6c539d89ca2943b776c8898238bbacf7c9c6ddf6374af7db972a1e3",
+    "probe.cjs": "b4e723d6f5fb3f66d9818f3ecebc3351a97bb762414d3a4f36f32ada7755cf5f",
+    "qualification.mjs": "11ed3f4427268e11bb206d3f7e1f2420cd09f152219d7666d704dae934e3c94e",
+    "raster-policy.cjs": "09a00a0f05b48e7458a78f1cbb05f7b3501d57dcd2cd5e4de8c23f539d3cca4f",
+    "run.mjs": "e4e1f4252360c3d777c1aa1cb8d1b4c999ea637a58c6f380b59c05d6430b6cc7",
+    "structural.mjs": "60117f36d2510f102e58c180a4656e16067d6f7d04d9b8b3312075e2b203e3c3",
+    "verify.cjs": "47e5192ef2c530b8ee70b243be2e66247105597a4d4e76ce0db1858751442d1c",
+    "viewer.html": "a34484daa6bcce1cfafdc006c10c94ef08d6fcf83857e6fc07bd8cd9b8d4cb2c",
+    "viewer.mjs": "b19d5695b16c6d4b9ff63621224d7feebf7bed8260eee71c26bdf994b28d09fa"
+  },
+  "profileQualified": true,
+  "status": "profile-qualified-fedora-arm64"
+}

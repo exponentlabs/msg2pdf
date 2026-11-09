@@ -1,6 +1,6 @@
 # ADR 0002: Durable case state, revision provenance and recovery
 
-- Status: Proposed
+- Status: Accepted for the initial Fedora profile
 - Date: 9 November 2026
 - Scope: Persistence and filesystem transactions
 
@@ -35,6 +35,8 @@ Use one writer per working folder, optimistic state-version checks and bounded w
 ## Lock ownership and recovery entry
 
 Use an OS-held exclusive lock on a persistent case-local lock file. The case service owns the handle for the entire open session, including reconciliation; child workers must not inherit it. Select and verify the platform adapter in S03 before implementing the store. The existing converter's create-exclusive `.msg2pdf.lock` file is not the studio lock protocol.
+
+The Fedora adapter additionally holds an exclusive lock on the case root directory for the whole session. Acquire this guard before opening lock metadata; it prevents accidental unlink/recreation of the metadata file from admitting a second live owner. Validate the held directory/file identities before writes. Both descriptors are close-on-exec and close with the session. This supplements the persistent-file protocol; it does not authorize deleting locks or claim resistance to a malicious local user.
 
 Keep the lock file at a stable path and never unlink or replace it to recover ownership. Owner metadata (process/session ID and start time) is diagnostic only: file existence, elapsed time, a PID lookup or a heartbeat must never authorize stealing a lock. If exclusive acquisition fails, return `CASE_BUSY`; if locking is unsupported or its outcome is uncertain, return `CASE_LOCK_UNAVAILABLE` and deny case mutations.
 
@@ -74,3 +76,7 @@ Back up a case through a consistent snapshot that includes its database and all 
 - Stale plan writes and stale approvals are rejected with actionable blockers.
 - External changes, duplicate inputs, case relocation, unsupported schemas and competing app instances have defined outcomes.
 - Backup/restore preserves document relationships and evidence; missing artifacts block dependent transitions.
+
+## Initial implementation evidence
+
+The bounded Fedora ARM64 implementation and local checks are documented in the [studio guide](../studio.md). Other studio platforms remain unqualified. The raster profile uses whole-line text selection, explicit inline-resource exclusions, a single local reviewer and process-termination recovery; it does not claim native-file component review, authenticated approval or VM-reset/power-loss durability.

@@ -1,6 +1,6 @@
 # ADR 0006: Local security, sensitive working data and shared gate enforcement
 
-- Status: Proposed
+- Status: Accepted for the initial Fedora profile
 - Date: 9 November 2026
 - Scope: Trust boundaries, automation and compatibility
 
@@ -38,3 +38,7 @@ Keep existing converter behavior available as a clearly labeled conversion opera
 - Synthetic sensitive text stays out of application logs, global history and public manifests.
 - Case close, cancellation and restart clean/reconcile private temporary data without publishing it.
 - Native packaged tests exercise working-folder access controls, locks and worker isolation on each supported OS.
+
+## Initial implementation evidence
+
+The bounded Fedora ARM64 implementation and local checks are documented in the [studio guide](../studio.md). Other studio platforms remain unqualified. The raster profile uses whole-line text selection, explicit inline-resource exclusions, a single local reviewer and process-termination recovery; it does not claim native-file component review, authenticated approval or VM-reset/power-loss durability.

@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { context } from 'esbuild';
 import { createServer } from 'vite';
 import './build-native.mjs';
+import { buildStudio } from './build-studio.mjs';
 
 const common = {
   bundle: true,
@@ -25,6 +26,7 @@ const contexts = await Promise.all([
 await Promise.all(contexts.map((item) => item.rebuild()));
 await Promise.all(contexts.map((item) => item.watch()));
 const server = await createServer();
+await buildStudio();
 await server.listen();
 const electron = createRequire(import.meta.url)('electron');
 const child = spawn(electron, ['.'], {

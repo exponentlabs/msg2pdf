@@ -96,6 +96,9 @@ describe('message normalization and HTML isolation', () => {
     );
     expect(message.html).toContain('Ready for review');
     expect(message.attachments.some((attachment) => attachment.name === 'notes.txt')).toBe(true);
+    const wrapper = message.attachments.find((attachment) => attachment.name === 'smime.p7m');
+    expect(wrapper?.hidden).toBe(true);
+    expect(Buffer.from(wrapper?.data ?? []).toString()).toBe(emlFixture());
     await expect(
       parseEmailBytes(msgFixture({ messageClass: 'IPM.Note.SMIME' }), '.msg'),
     ).rejects.toThrow('decrypted');

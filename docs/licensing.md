@@ -10,6 +10,8 @@ Run `pnpm licenses:generate` to collect locked production versions, the bundled 
 
 LibreOffice is installed separately through its official website or selected from an existing installation. Its own terms apply. Review its redistribution obligations before bundling it in a future release.
 
+The Linux case-lock module compiles against the four versioned Node-API headers under `native/linux/node-api/`. Their original notices, upstream licence, archive verification hash and per-file provenance are retained there. The Linux ARM64 package includes the corresponding licence beside the compiled module. Studio verification uses separately installed Fedora QPDF/Poppler packages as specified in ADR 0009; their binaries/libraries are not bundled with the application.
+
 ## Redistribution
 
 Source archives and application packages include LICENSE and NOTICE alongside third-party notices. Include these files when redistributing, preserve applicable attribution and copyright notices, and mark modified files as required by Apache-2.0. Review generated notices and final artifact contents before release.

@@ -77,6 +77,13 @@ module.exports = {
     deleteAppDataOnUninstall: false,
   },
   linux: {
+    extraResources:
+      process.platform === 'linux' && process.arch === 'arm64'
+        ? [
+            { from: 'resources/native/studio-lock.node', to: 'native/studio-lock.node' },
+            { from: 'native/linux/node-api/LICENSE', to: 'native/node-api-LICENSE' },
+          ]
+        : [],
     target: ['AppImage', 'deb'],
     category: 'Office',
     synopsis: 'Offline email-to-PDF workbench',

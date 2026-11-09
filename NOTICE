@@ -9,4 +9,9 @@ See resources/THIRD_PARTY_NOTICES.txt in the source tree, or
 THIRD_PARTY_NOTICES.txt beside this file in packaged applications. Electron
 and Chromium notices are also included with the application runtime.
 
+The Linux studio lock uses Node-API headers from Node.js 24.18.0, copyright
+Node.js contributors, under their MIT terms. Source notices and provenance
+are in native/linux/node-api/; the packaged Linux ARM64 application includes
+native/node-api-LICENSE beside the native module.
+
 See docs/licensing.md for scope and dependency details.

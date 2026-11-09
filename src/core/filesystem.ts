@@ -15,6 +15,7 @@ import {
 } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { LIMITS } from './limits';
+import { assertLegacyDestination } from './studio/paths';
 
 export function isWithin(candidate: string, root: string): boolean {
   const path = relative(resolve(root), resolve(candidate));
@@ -91,6 +92,7 @@ export async function atomicProduce(
   overwrite: boolean,
   produce: (temporary: string) => Promise<void>,
 ): Promise<boolean> {
+  await assertLegacyDestination(destination);
   if (!(await shouldWrite(destination, root, overwrite))) return false;
   await inspectOutput(destination, root, true);
   const scratch = await mkdtemp(join(dirname(destination), '.msg2pdf-'));

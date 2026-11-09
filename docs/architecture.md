@@ -43,3 +43,7 @@ The terminal launcher intentionally keeps the RunAsNode fuse enabled. Node optio
 ## Validation boundaries
 
 Use `pnpm check` for source checks and real Electron tests. Use `pnpm package:dir && pnpm test:packaged` for the current platform. `MSG2PDF_TEST_OFFICE` enables a real optional Office conversion integration test against a current local executable. Packaging configuration/CI alone is not proof that another OS has passed; native runner results and release signing are separate requirements.
+
+## Initial studio implementation
+
+The [Fedora studio](studio.md) uses portable schemas/gates and canonical review hashes under `src/shared/studio-domain.ts` and `src/core/studio`, a private SQLite/artifact store under `src/main/studio/store.ts`, and a named transition service shared with the separate studio CLI. Browser PDF parsing, scoped Node assembly/source workers and independent system verifier processes remain isolated from the privileged main process. Only native confirmations create candidate/release approvals. A Linux Node-API adapter supplies persistent-file flock and `renameat2(RENAME_NOREPLACE)` for complete-package publication. The existing converter retains separate semantics and rejects managed-case write destinations.

@@ -1,6 +1,6 @@
 # ADR 0005: Attachment families and immutable release packages
 
-- Status: Proposed
+- Status: Accepted for the initial Fedora profile
 - Date: 9 November 2026
 - Scope: Release membership, attachment accountability and disclosure outputs
 
@@ -47,3 +47,7 @@ Older releases stay historically identifiable when new revisions are created. Ma
 - Folder/file names and manifest content contain no synthetic sensitive source names or paths.
 - One failed selected member produces no published package; a new deliberate smaller selection can succeed.
 - Editing or withdrawing a release never silently rewrites its previously published bytes.
+
+## Initial implementation evidence
+
+The bounded Fedora ARM64 implementation and local checks are documented in the [studio guide](../studio.md). Other studio platforms remain unqualified. The raster profile uses whole-line text selection, explicit inline-resource exclusions, a single local reviewer and process-termination recovery; it does not claim native-file component review, authenticated approval or VM-reset/power-loss durability.
