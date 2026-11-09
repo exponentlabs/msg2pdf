@@ -18,10 +18,16 @@ import { createRequire } from 'node:module';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { backup, DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
-import { evidenceHash, type StudioState, studioStateSchema } from '../../core/studio/domain';
+import {
+  evidenceHash,
+  releaseGate,
+  type StudioState,
+  studioStateSchema,
+} from '../../core/studio/domain';
 
 export interface CaseLock {
   acquire(path: string): number;
+  promoteDirectory(source: string, target: string): void;
 }
 export function nativeCaseLock(binary: string): CaseLock {
   const value: unknown = createRequire(resolve(binary))(resolve(binary));
@@ -29,7 +35,9 @@ export function nativeCaseLock(binary: string): CaseLock {
     !value ||
     typeof value !== 'object' ||
     !('acquire' in value) ||
-    typeof value.acquire !== 'function'
+    typeof value.acquire !== 'function' ||
+    !('promoteDirectory' in value) ||
+    typeof value.promoteDirectory !== 'function'
   )
     throw new Error('CASE_LOCK_UNAVAILABLE');
   return value as CaseLock;
@@ -49,6 +57,10 @@ const operationSchema = z
     expectedVersion: z.number().int(),
     nextState: studioStateSchema,
     artifacts: z.array(artifactSchema),
+    package: z
+      .object({ path: z.string(), approvalHash: z.string().regex(/^[a-f0-9]{64}$/) })
+      .strict()
+      .optional(),
     source: z
       .object({ documentId: z.string().uuid(), originalName: z.string(), origin: z.string() })
       .optional(),
@@ -87,6 +99,7 @@ export class CaseStore {
     readonly root: string,
     private readonly db: DatabaseSync,
     private readonly lock: number,
+    private readonly binding: CaseLock,
   ) {}
   static async create(
     root: string,
@@ -129,7 +142,7 @@ export class CaseStore {
       }
       await syncDirectory(join(absolute, '.studio'));
       await syncDirectory(absolute);
-      return new CaseStore(await realpath(absolute), db, descriptor);
+      return new CaseStore(await realpath(absolute), db, descriptor, lock);
     } catch (error) {
       db?.close();
       closeSync(descriptor);
@@ -174,7 +187,7 @@ export class CaseStore {
         db.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok'
       )
         throw new Error('CASE_INTEGRITY_ERROR');
-      const store = new CaseStore(absolute, db, descriptor);
+      const store = new CaseStore(absolute, db, descriptor, lock);
       if (store.state().id !== marker.id) throw new Error('CASE_INTEGRITY_ERROR');
       await store.recover();
       await store.validate();
@@ -410,6 +423,187 @@ export class CaseStore {
       { documentId: id, originalName: basename(input), origin: canonical },
     );
   }
+  private checkPublication(operation: Operation): void {
+    const state = this.state();
+    const gate = releaseGate(state);
+    const approval = state.releaseApproval;
+    if (
+      !gate.ok ||
+      !approval ||
+      !operation.package ||
+      state.version !== operation.expectedVersion ||
+      evidenceHash(approval) !== operation.package.approvalHash ||
+      operation.package.path !== `Redacted for sharing/${approval.manifest.releaseId}`
+    )
+      throw new Error('RELEASE_UNAPPROVED');
+    const expected = approval.manifest.files.map((file) => ({
+      path: `${operation.package?.path}/${file.name}`,
+      hash: file.hash,
+      documentId: file.documentId,
+    }));
+    expected.push({
+      path: `${operation.package.path}/manifest.json`,
+      hash: bytesHash(Buffer.from(`${JSON.stringify(approval.manifest, null, 2)}\n`)),
+      documentId: approval.manifest.files[0]?.documentId ?? '',
+    });
+    if (
+      operation.artifacts.length !== expected.length ||
+      operation.artifacts.some((artifact, index) => {
+        const item = expected[index];
+        return (
+          !item ||
+          artifact.role !== 'release' ||
+          artifact.path !== item.path ||
+          artifact.hash !== item.hash ||
+          artifact.documentId !== item.documentId
+        );
+      })
+    )
+      throw new Error('CASE_INTEGRITY_ERROR');
+    const next = {
+      ...state,
+      version: state.version + 1,
+      releaseApproval: undefined,
+      releases: [
+        ...(state.releases ?? []),
+        { approval, path: operation.package.path, at: operation.nextState.releases?.at(-1)?.at },
+      ],
+    };
+    if (evidenceHash(next) !== evidenceHash(operation.nextState))
+      throw new Error('CASE_INTEGRITY_ERROR');
+  }
+  private async checkPackage(directory: string, artifacts: Artifact[]): Promise<void> {
+    const info = await lstat(directory);
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('CASE_INTEGRITY_ERROR');
+    const names = await readdir(directory);
+    if (
+      names.length !== artifacts.length ||
+      names.some((name) => !artifacts.some((item) => basename(item.path) === name))
+    )
+      throw new Error('CASE_INTEGRITY_ERROR');
+    for (const artifact of artifacts) {
+      const path = join(directory, basename(artifact.path));
+      const file = await lstat(path);
+      if (
+        !file.isFile() ||
+        file.isSymbolicLink() ||
+        file.nlink !== 1 ||
+        file.size !== artifact.size ||
+        bytesHash(await readFile(path)) !== artifact.hash
+      )
+        throw new Error('CASE_INTEGRITY_ERROR');
+    }
+  }
+  async publish(expectedVersion: number): Promise<StudioState> {
+    if (this.busy) throw new Error('CASE_BUSY');
+    this.busy = true;
+    try {
+      const state = this.state();
+      if (state.version !== expectedVersion) throw new Error('STATE_STALE');
+      if (
+        this.db
+          .prepare("SELECT id FROM operations WHERE stage NOT IN ('complete','aborted') LIMIT 1")
+          .get()
+      )
+        throw new Error('CASE_INTEGRITY_ERROR');
+      await this.validate();
+      const approval = state.releaseApproval;
+      const gate = releaseGate(state);
+      if (!approval || !gate.ok)
+        throw new Error(gate.ok ? 'RELEASE_UNAPPROVED' : gate.blockers[0]?.code);
+      const path = `Redacted for sharing/${approval.manifest.releaseId}`;
+      const outputs: { artifact: Artifact; bytes: Buffer }[] = [];
+      for (const file of approval.manifest.files) {
+        const source = this.artifacts().find(
+          (item) =>
+            item.role === 'candidate' &&
+            item.documentId === file.documentId &&
+            item.hash === file.hash,
+        );
+        if (!source) throw new Error('VERIFICATION_FAILED');
+        const bytes = await readFile(await this.path(source.path));
+        if (bytesHash(bytes) !== file.hash) throw new Error('CASE_INTEGRITY_ERROR');
+        outputs.push({
+          artifact: {
+            path: `${path}/${file.name}`,
+            documentId: file.documentId,
+            role: 'release',
+            hash: file.hash,
+            size: bytes.length,
+          },
+          bytes,
+        });
+      }
+      const manifest = Buffer.from(`${JSON.stringify(approval.manifest, null, 2)}\n`);
+      const documentId = approval.manifest.files[0]?.documentId;
+      if (!documentId) throw new Error('RELEASE_UNAPPROVED');
+      outputs.push({
+        artifact: {
+          path: `${path}/manifest.json`,
+          documentId,
+          role: 'release',
+          hash: bytesHash(manifest),
+          size: manifest.length,
+        },
+        bytes: manifest,
+      });
+      const required = outputs.reduce((sum, output) => sum + output.bytes.length, 0);
+      const disk = await statfs(this.root);
+      if (required > 256 * 1024 * 1024 || disk.bavail * disk.bsize < required + 64 * 1024 * 1024)
+        throw new Error('Release disk budget exceeded');
+      const id = randomUUID();
+      const operation = operationSchema.parse({
+        expectedVersion,
+        artifacts: outputs.map((output) => output.artifact),
+        package: { path, approvalHash: evidenceHash(approval) },
+        nextState: {
+          ...state,
+          version: expectedVersion + 1,
+          releaseApproval: undefined,
+          releases: [...(state.releases ?? []), { approval, path, at: new Date().toISOString() }],
+        },
+      });
+      this.checkPublication(operation);
+      this.db
+        .prepare('INSERT INTO operations VALUES(?,?,?)')
+        .run(id, 'intent', JSON.stringify(operation));
+      this.observer?.('intent');
+      const staging = join(this.root, '.studio/staging', id);
+      await privateDirectory(join(staging, 'package'));
+      for (const output of outputs) {
+        const handle = await open(
+          join(staging, 'package', basename(output.artifact.path)),
+          'wx',
+          0o600,
+        );
+        try {
+          await handle.writeFile(output.bytes);
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+      }
+      await syncDirectory(join(staging, 'package'));
+      await syncDirectory(staging);
+      this.db.prepare('UPDATE operations SET stage=? WHERE id=?').run('prepared', id);
+      this.observer?.('prepared');
+      this.checkPublication(operation);
+      await this.checkPackage(join(staging, 'package'), operation.artifacts);
+      this.binding.promoteDirectory(
+        join(staging, 'package'),
+        await this.path(`${path}/manifest.json`).then(dirname),
+      );
+      await syncDirectory(join(this.root, 'Redacted for sharing'));
+      await syncDirectory(staging);
+      this.observer?.('promoted');
+      this.finish(id, operation);
+      this.observer?.('committed');
+      await rm(staging, { recursive: true });
+      return this.state();
+    } finally {
+      this.busy = false;
+    }
+  }
   private async recover(): Promise<void> {
     for (const row of this.db
       .prepare(
@@ -422,6 +616,44 @@ export class CaseStore {
       if (this.state().version !== operation.expectedVersion)
         throw new Error('CASE_INTEGRITY_ERROR');
       const staging = join(this.root, '.studio/staging', id);
+      if (operation.package) {
+        this.checkPublication(operation);
+        const target = dirname(await this.path(`${operation.package.path}/manifest.json`));
+        let promoted = false;
+        try {
+          await lstat(target);
+          promoted = true;
+        } catch (error) {
+          if (!missing(error)) throw error;
+        }
+        if (promoted) {
+          if (row.stage !== 'prepared') throw new Error('CASE_INTEGRITY_ERROR');
+          await this.checkPackage(target, operation.artifacts);
+        }
+        try {
+          const info = await lstat(staging);
+          if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('CASE_INTEGRITY_ERROR');
+          const entries = await readdir(staging);
+          if (entries.some((name) => name !== 'package') || (promoted && entries.length))
+            throw new Error('CASE_INTEGRITY_ERROR');
+          if (entries.includes('package')) {
+            // An incomplete intent may own only a subset; validate each before deleting it.
+            const directory = join(staging, 'package');
+            const names = await readdir(directory);
+            await this.checkPackage(
+              directory,
+              operation.artifacts.filter((artifact) => names.includes(basename(artifact.path))),
+            );
+          }
+          await rm(staging, { recursive: true });
+        } catch (error) {
+          if (!missing(error)) throw error;
+        }
+        if (promoted) this.finish(id, operation);
+        else
+          this.db.prepare('UPDATE operations SET stage=? WHERE id=?').run('aborted', id);
+        continue;
+      }
       try {
         const stagingInfo = await lstat(staging);
         if (!stagingInfo.isDirectory() || stagingInfo.isSymbolicLink())

@@ -6,9 +6,15 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { atomicWrite } from '../../src/core/filesystem';
 import { createPlan } from '../../src/core/planner';
-import { evidenceHash } from '../../src/core/studio/domain';
+import {
+  evidenceHash,
+  makeReleaseManifest,
+  mandatoryChecks,
+  releaseFingerprint,
+  reviewContext,
+} from '../../src/core/studio/domain';
 import { assertLegacyDestination } from '../../src/core/studio/paths';
-import { type CaseLock, CaseStore, nativeCaseLock } from '../../src/main/studio/store';
+import { bytesHash, type CaseLock, CaseStore, nativeCaseLock } from '../../src/main/studio/store';
 import { requestSchema } from '../../src/shared/contracts';
 
 describe.skipIf(process.platform !== 'linux')('durable studio store with real OS locks', () => {
@@ -45,6 +51,99 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
     );
     return { directory, input, store };
   }
+  async function approved() {
+    const result = await setup();
+    const state = await result.store.capture(result.input, 0);
+    const document = state.documents[0];
+    if (!document) throw new Error('Missing fixture document');
+    document.revision = {
+      hash: document.sourceHash,
+      snapshotHash: evidenceHash('snapshot'),
+      sourceHash: document.sourceHash,
+      converter: 'fixture',
+      pages: [{ mediaBox: [0, 0, 400, 400], cropBox: [0, 0, 400, 400], rotation: 0, userUnit: 1 }],
+    };
+    document.plan = {
+      id: crypto.randomUUID(),
+      revisionHash: document.sourceHash,
+      marks: [],
+      reviewedPages: [0],
+    };
+    const bytes = Buffer.from('Synthetic verified candidate');
+    document.candidate = {
+      hash: bytesHash(bytes),
+      evidenceHash: evidenceHash('evidence'),
+      revisionHash: document.sourceHash,
+      snapshotHash: document.revision.snapshotHash,
+      planHash: evidenceHash(document.plan),
+      policyHash: state.policyHash,
+      contractHash: state.contractHash,
+      engine: 'fixture',
+      checkers: ['one', 'two'],
+      checks: mandatoryChecks.map((name) => ({ name, passed: true })),
+    };
+    document.candidate.review = {
+      candidateHash: document.candidate.hash,
+      contextHash: reviewContext(state, document),
+      actor: 'Local user',
+      at: new Date().toISOString(),
+      pages: [0],
+    };
+    await result.store.transition(state.version, state, [
+      {
+        artifact: {
+          path: `.studio/candidates/${document.id}/verified.pdf`,
+          role: 'candidate',
+          documentId: document.id,
+        },
+        bytes,
+      },
+    ]);
+    const next = result.store.state();
+    const manifest = makeReleaseManifest(next, [document.id], crypto.randomUUID());
+    next.releaseApproval = {
+      manifest,
+      manifestHash: evidenceHash(manifest),
+      contextHash: releaseFingerprint({ ...next, version: next.version + 1 }, [document.id]),
+      actor: 'Local user',
+      at: new Date().toISOString(),
+    };
+    await result.store.transition(next.version, next);
+    return result;
+  }
+  it.each(['intent', 'prepared', 'promoted', 'committed'])(
+    'recovers atomic approved publication at %s',
+    async (boundary) => {
+      const { store, directory } = await approved();
+      store.observer = (phase) => {
+        if (phase === boundary) throw new Error('Interrupted');
+      };
+      await expect(store.publish(store.state().version)).rejects.toThrow('Interrupted');
+      store.close();
+      const recovered = await CaseStore.open(directory, lock);
+      const completed = boundary === 'promoted' || boundary === 'committed';
+      expect(recovered.state().releases?.length ?? 0).toBe(completed ? 1 : 0);
+      const entries = await readdir(join(directory, 'Redacted for sharing'));
+      expect(entries).toHaveLength(completed ? 1 : 0);
+      if (completed && entries[0])
+        expect(await readdir(join(directory, 'Redacted for sharing', entries[0]))).toEqual([
+          'document-001.pdf',
+          'manifest.json',
+        ]);
+      await recovered.validate();
+      recovered.close();
+    },
+  );
+  it('blocks stale approvals and refuses native directory replacement', async () => {
+    const { store } = await approved();
+    const state = store.state();
+    await store.transition(state.version, state);
+    await expect(store.publish(store.state().version)).rejects.toThrow('RELEASE_UNAPPROVED');
+    store.close();
+    const first = await mkdtemp(join(root, 'native-first-'));
+    const second = await mkdtemp(join(root, 'native-second-'));
+    expect(() => lock.promoteDirectory(first, second)).toThrow();
+  });
   it('captures a private immutable source with provenance and survives relocation/reopen', async () => {
     const { directory, input, store } = await setup();
     const state = await store.capture(input, 0);

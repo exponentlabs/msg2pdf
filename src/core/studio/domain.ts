@@ -7,6 +7,7 @@ import {
   mandatoryChecks,
   type Plan,
   planSchema,
+  type ReleaseManifest,
   type Revision,
   type StudioDocument,
   type StudioState,
@@ -99,6 +100,9 @@ export function documentGate(state: StudioState, document: StudioDocument): Gate
     add('VERIFICATION_FAILED');
   if (
     !candidate?.review ||
+    candidate.review.pages.length !== revision?.pages.length ||
+    !revision ||
+    revision.pages.some((_, page) => !candidate.review?.pages.includes(page)) ||
     candidate.review.candidateHash !== candidate.hash ||
     candidate.review.contextHash !== reviewContext(state, document)
   )
@@ -165,4 +169,51 @@ export function releaseFingerprint(state: StudioState, selection: string[]): str
       };
     }),
   });
+}
+export function releaseGate(state: StudioState): Gate {
+  const approval = state.releaseApproval;
+  if (!approval) return { ok: false, blockers: [{ code: 'RELEASE_UNAPPROVED' }] };
+  const ids = approval.manifest.files.map((file) => file.documentId);
+  const gate = selectionGate(state, ids, state.version);
+  if (!gate.ok) return gate;
+  if (
+    approval.contextHash !== releaseFingerprint(state, ids) ||
+    approval.manifestHash !== evidenceHash(approval.manifest) ||
+    state.releases?.some(
+      (release) => release.approval.manifest.releaseId === approval.manifest.releaseId,
+    ) ||
+    approval.manifest.files.some((file, index) => {
+      const document = state.documents.find((item) => item.id === file.documentId);
+      return (
+        file.name !== `document-${String(index + 1).padStart(3, '0')}.pdf` ||
+        file.hash !== document?.candidate?.hash ||
+        file.pages !== document.revision?.pages.length
+      );
+    })
+  )
+    return { ok: false, blockers: [{ code: 'RELEASE_UNAPPROVED' }] };
+  return { ok: true };
+}
+export function makeReleaseManifest(
+  state: StudioState,
+  selection: string[],
+  releaseId: string,
+): ReleaseManifest {
+  const gate = selectionGate(state, selection, state.version);
+  if (!gate.ok) throw new Error(gate.blockers[0]?.code ?? 'RELEASE_UNAPPROVED');
+  return {
+    schemaVersion: 1,
+    releaseId,
+    profile: 'fedora-raster-v1',
+    files: selection.map((id, index) => {
+      const document = state.documents.find((item) => item.id === id);
+      if (!document?.candidate || !document.revision) throw new Error('VERIFICATION_FAILED');
+      return {
+        name: `document-${String(index + 1).padStart(3, '0')}.pdf`,
+        documentId: id,
+        hash: document.candidate.hash,
+        pages: document.revision.pages.length,
+      };
+    }),
+  };
 }

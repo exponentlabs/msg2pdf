@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { inversePoint, transformRectangle } from '../../core/studio/geometry';
+import { inversePoint, pixelRegion } from '../../core/studio/geometry';
 import type { Rectangle, SnapshotPage, StudioView } from '../../shared/studio';
 import type { Plan } from '../../shared/studio-domain';
 import './Studio.css';
@@ -114,8 +114,20 @@ export function Studio() {
     const bounds = image.current?.getBoundingClientRect();
     if (!bounds || !currentPage) return null;
     return [
-      Math.max(0, Math.min(currentPage.width, (event.clientX - bounds.left) / zoom)),
-      Math.max(0, Math.min(currentPage.height, (event.clientY - bounds.top) / zoom)),
+      Math.max(
+        0,
+        Math.min(
+          Math.ceil(currentPage.width * 2) / 2,
+          (((event.clientX - bounds.left) / bounds.width) * Math.ceil(currentPage.width * 2)) / 2,
+        ),
+      ),
+      Math.max(
+        0,
+        Math.min(
+          Math.ceil(currentPage.height * 2) / 2,
+          (((event.clientY - bounds.top) / bounds.height) * Math.ceil(currentPage.height * 2)) / 2,
+        ),
+      ),
     ];
   }
   async function finishDrag(event: React.PointerEvent): Promise<void> {
@@ -257,7 +269,33 @@ export function Studio() {
             </section>
             <section>
               <h2>Redacted for sharing</h2>
-              <p>No approved release yet</p>
+              <p>{state.releases?.length ?? 0} immutable releases</p>
+              <button
+                type="button"
+                disabled={busy || !document || !!view?.case?.blockers[document.id]?.length}
+                onClick={() =>
+                  document &&
+                  void action(() =>
+                    window.studio.approveRelease({ version, selection: [document.id] }),
+                  )
+                }
+              >
+                Approve selected document release
+              </button>
+              {state.releaseApproval && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void action(() => window.studio.publish({ version }))}
+                >
+                  Publish approved release
+                </button>
+              )}
+              {state.releases?.map((release) => (
+                <p key={release.approval.manifest.releaseId}>
+                  {release.path} · {release.approval.manifest.files.length} document(s)
+                </p>
+              ))}
             </section>
           </div>
           <div className="studio-workspace">
@@ -388,19 +426,25 @@ export function Studio() {
                       {marks
                         .filter((mark) => mark.page === pageIndex)
                         .map((mark) => {
-                          const [x1, y1, x2, y2] = transformRectangle(
+                          const [x1, y1, width, height] = pixelRegion(
                             currentPage.transform,
                             mark.rect,
+                            currentPage.width,
+                            currentPage.height,
                           );
+                          const sx =
+                            (currentPage.width / (Math.ceil(currentPage.width * 2) / 2)) * zoom;
+                          const sy =
+                            (currentPage.height / (Math.ceil(currentPage.height * 2) / 2)) * zoom;
                           return (
                             <div
                               key={mark.id}
                               className="studio-mark"
                               style={{
-                                left: x1 * zoom,
-                                top: y1 * zoom,
-                                width: (x2 - x1) * zoom,
-                                height: (y2 - y1) * zoom,
+                                left: x1 * sx,
+                                top: y1 * sy,
+                                width: width * sx,
+                                height: height * sy,
                               }}
                             />
                           );
@@ -557,6 +601,55 @@ export function Studio() {
                       </li>
                     ))}
                   </ul>
+                  <section className="studio-candidate">
+                    <h2>Sanitized candidate</h2>
+                    <p>
+                      Create a private image-only candidate after every source page is reviewed.
+                      Marks and source bytes remain available for rework.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        !view?.available ||
+                        document.plan?.reviewedPages.length !== pages.length
+                      }
+                      onClick={() =>
+                        void action(() => window.studio.apply({ id: document.id, version }))
+                      }
+                    >
+                      Create image-only candidate
+                    </button>
+                    {document.candidate && (
+                      <>
+                        <p>
+                          Independently verified · {document.candidate.review?.pages.length ?? 0}/
+                          {pages.length} candidate pages reviewed
+                        </p>
+                        <p className="studio-hash">SHA-256: {document.candidate.hash}</p>
+                        <p>
+                          Review opens the actual sanitized output in a separate window. Close it
+                          when finished to record the page decision.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={busy || !view?.available}
+                          onClick={() =>
+                            void action(() =>
+                              window.studio.reviewCandidate({
+                                id: document.id,
+                                version,
+                                candidateHash: document.candidate?.hash ?? '',
+                                page: pageIndex,
+                              }),
+                            )
+                          }
+                        >
+                          Review sanitized page {pageIndex + 1}
+                        </button>
+                      </>
+                    )}
+                  </section>
                 </>
               ) : (
                 <p>

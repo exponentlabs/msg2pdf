@@ -46,6 +46,7 @@ export const mandatoryChecks = [
 ] as const;
 export interface Candidate {
   hash: string;
+  evidenceHash: string;
   revisionHash: string;
   planHash: string;
   policyHash: string;
@@ -54,7 +55,9 @@ export interface Candidate {
   engine: string;
   checkers: string[];
   checks: { name: string; passed: boolean }[];
-  review?: { candidateHash: string; contextHash: string; actor: string; at: string } | undefined;
+  review?:
+    | { candidateHash: string; contextHash: string; actor: string; at: string; pages: number[] }
+    | undefined;
 }
 export interface StudioDocument {
   id: string;
@@ -83,18 +86,61 @@ export interface StudioState {
   contractHash: string;
   documents: StudioDocument[];
   families: Family[];
+  releaseApproval?: ReleaseApproval | undefined;
+  releases?: ReleaseRecord[] | undefined;
 }
+export const releaseManifestSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    releaseId: z.string().uuid(),
+    profile: z.literal('fedora-raster-v1'),
+    files: z
+      .array(
+        z
+          .object({
+            name: z.string().regex(/^document-[0-9]{3,4}\.pdf$/),
+            documentId: z.string().uuid(),
+            hash: sha256Schema,
+            pages: z.number().int().min(1).max(8),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(1000),
+  })
+  .strict();
+export type ReleaseManifest = z.infer<typeof releaseManifestSchema>;
+export const releaseApprovalSchema = z
+  .object({
+    manifest: releaseManifestSchema,
+    manifestHash: sha256Schema,
+    contextHash: sha256Schema,
+    actor: z.string().min(1).max(100),
+    at: z.string().datetime(),
+  })
+  .strict();
+export type ReleaseApproval = z.infer<typeof releaseApprovalSchema>;
+export const releaseRecordSchema = z
+  .object({
+    approval: releaseApprovalSchema,
+    path: z.string().regex(/^Redacted for sharing\/[a-f0-9-]{36}$/),
+    at: z.string().datetime(),
+  })
+  .strict();
+export type ReleaseRecord = z.infer<typeof releaseRecordSchema>;
 const reviewSchema = z
   .object({
     candidateHash: sha256Schema,
     contextHash: sha256Schema,
     actor: z.string().min(1).max(100),
     at: z.string().datetime(),
+    pages: z.array(z.number().int().nonnegative()).max(8),
   })
   .strict();
 export const candidateSchema: z.ZodType<Candidate> = z
   .object({
     hash: sha256Schema,
+    evidenceHash: sha256Schema,
     revisionHash: sha256Schema,
     planHash: sha256Schema,
     policyHash: sha256Schema,
@@ -148,6 +194,8 @@ export const studioStateSchema: z.ZodType<StudioState> = z
     policyHash: sha256Schema,
     contractHash: sha256Schema,
     documents: z.array(documentSchema).max(1000),
+    releaseApproval: releaseApprovalSchema.optional(),
+    releases: z.array(releaseRecordSchema).max(1000).optional(),
     families: z
       .array(
         z

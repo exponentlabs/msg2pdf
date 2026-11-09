@@ -87,6 +87,42 @@ test('Fedora studio captures fixed pages, marks, reviews and reopens durable pla
     await expect(
       window.getByRole('button', { name: 'Mark page unreviewed', exact: true }),
     ).toBeVisible();
+    await window.getByRole('button', { name: 'Create image-only candidate', exact: true }).click();
+    await expect(
+      window.getByRole('button', { name: 'Review sanitized page 1', exact: true }),
+    ).toBeVisible({ timeout: 45_000 });
+    const candidate = await window.evaluate(
+      async () =>
+        (await (Reflect.get(globalThis, 'studio') as StudioApi).status()).case?.state.documents[0]
+          ?.candidate,
+    );
+    expect(candidate?.checks.every((check) => check.passed)).toBe(true);
+    expect(candidate?.review).toBeUndefined();
+    await application.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false });
+    });
+    const opened = application.waitForEvent('window');
+    await window.getByRole('button', { name: 'Review sanitized page 1', exact: true }).click();
+    const preview = await opened;
+    await expect(
+      preview.getByRole('heading', { name: 'Sanitized candidate — page 1 of 1' }),
+    ).toBeVisible();
+    await preview.screenshot({ path: 'artifacts/studio-candidate.png' });
+    await application.evaluate(({ BrowserWindow }) => {
+      const preview = BrowserWindow.getAllWindows().find((window) =>
+        window.webContents.getURL().startsWith('app://studio-candidate/'),
+      );
+      if (!preview) throw new Error('Missing candidate preview');
+      preview.close();
+    });
+    await expect(
+      window.getByText('Independently verified · 1/1 candidate pages reviewed', { exact: true }),
+    ).toBeVisible();
+    await window
+      .getByRole('button', { name: 'Approve selected document release', exact: true })
+      .click();
+    await window.getByRole('button', { name: 'Publish approved release', exact: true }).click();
+    await expect(window.getByText('1 immutable releases', { exact: true })).toBeVisible();
     await mkdir('artifacts', { recursive: true });
     await window.screenshot({ path: 'artifacts/studio-review.png' });
   } finally {

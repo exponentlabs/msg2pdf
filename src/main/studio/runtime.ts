@@ -225,15 +225,22 @@ export class StudioRuntime {
       );
       let stdout = '';
       let settled = false;
+      let pendingError: Error | undefined;
       const finish = (error?: Error): void => {
         if (settled) return;
+        if (error && child.pid && child.exitCode === null && child.signalCode === null) {
+          if (!pendingError) {
+            pendingError = error;
+            child.kill('SIGKILL');
+          }
+          return;
+        }
         settled = true;
         clearTimeout(timer);
         clearInterval(memory);
         signal?.removeEventListener('abort', abort);
-        if (error) {
-          child.kill('SIGKILL');
-          reject(error);
+        if (pendingError || error) {
+          reject(pendingError ?? error);
         } else resolveRun(stdout);
       };
       const abort = () => finish(new Error('CANCELLED'));
@@ -261,6 +268,7 @@ export class StudioRuntime {
       signal?.addEventListener('abort', abort, { once: true });
       child.on('error', () => finish(new Error('WORKER_UNAVAILABLE')));
       child.stdout.on('data', (chunk: Buffer) => {
+        if (pendingError) return;
         stdout += chunk.toString();
         if (stdout.length > 24 * 1024 * 1024) finish(new Error('WORKER_OUTPUT_LIMIT'));
       });

@@ -93,7 +93,8 @@ exports.verifyRaster = (bytes, decoded, encoded, expected) => {
       }
     for (const [x, y, w, h] of target.regions) {
       assert([x, y, w, h].every(Number.isFinite) && w > 0 && h > 0);
-      assert(x >= 0 && y >= 0 && x + w <= target.width && y + h <= target.height);
+      assert([x, y, w, h].every((value) => Number.isInteger(value * 2)));
+      assert(x >= 0 && y >= 0 && x + w <= width / 2 && y + h <= height / 2);
       for (let py = Math.ceil(y * 2); py < Math.floor((y + h) * 2); py++) {
         for (let px = Math.ceil(x * 2); px < Math.floor((x + w) * 2); px++) {
           const at = (py * width + px) * 3;

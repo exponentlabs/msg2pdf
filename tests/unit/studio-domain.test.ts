@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   documentGate,
   evidenceHash,
+  makeReleaseManifest,
   mandatoryChecks,
   releaseFingerprint,
+  releaseGate,
   reviewContext,
   type StudioDocument,
   type StudioState,
@@ -44,6 +46,7 @@ function ready() {
   };
   document.candidate = {
     hash: evidenceHash('candidate bytes'),
+    evidenceHash: evidenceHash('verification evidence'),
     revisionHash: pdfHash,
     planHash: evidenceHash(document.plan),
     policyHash: state.policyHash,
@@ -60,6 +63,7 @@ function ready() {
       contextHash: reviewContext(state, document),
       actor: 'Local reviewer',
       at: '2026-11-09T00:00:00.000Z',
+      pages: [0, 1],
     };
   };
   seal();
@@ -67,6 +71,26 @@ function ready() {
 }
 
 describe('studio publication gates', () => {
+  it('binds release approval to the exact version, manifest and candidate selection', () => {
+    const { state, document } = ready();
+    const manifest = makeReleaseManifest(state, [document.id], randomUUID());
+    state.releaseApproval = {
+      manifest,
+      manifestHash: evidenceHash(manifest),
+      contextHash: releaseFingerprint(state, [document.id]),
+      actor: 'Local user',
+      at: new Date().toISOString(),
+    };
+    expect(releaseGate(state)).toEqual({ ok: true });
+    state.version++;
+    expect(releaseGate(state)).toMatchObject({ ok: false });
+    state.version--;
+    const first = manifest.files[0];
+    if (!first) throw new Error('Missing manifest file');
+    first.name = 'document-999.pdf';
+    state.releaseApproval.manifestHash = evidenceHash(manifest);
+    expect(releaseGate(state)).toMatchObject({ ok: false });
+  });
   it('allows an explicitly reviewed zero-mark sanitized candidate', () => {
     const { state, document } = ready();
     expect(studioStateSchema.parse(JSON.parse(JSON.stringify(state)))).toEqual(state);

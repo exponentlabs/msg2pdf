@@ -61,4 +61,13 @@ export interface StudioApi {
     phrase: string;
   }): Promise<{ page: number; rect: Rectangle; text: string }[]>;
   cancel(): Promise<void>;
+  apply(request: { id: string; version: number }): Promise<StudioView>;
+  reviewCandidate(request: {
+    id: string;
+    version: number;
+    candidateHash: string;
+    page: number;
+  }): Promise<StudioView>;
+  approveRelease(request: { version: number; selection: string[] }): Promise<StudioView>;
+  publish(request: { version: number }): Promise<StudioView>;
 }

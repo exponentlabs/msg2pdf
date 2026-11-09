@@ -25,3 +25,17 @@ export function transformRectangle(matrix: Matrix, rect: Rectangle): Rectangle {
     Math.max(...points.map(([, y]) => y)),
   ];
 }
+export function pixelRegion(
+  matrix: Matrix,
+  rect: Rectangle,
+  width: number,
+  height: number,
+): Rectangle {
+  const [x1, y1, x2, y2] = transformRectangle(matrix, rect);
+  const left = Math.max(0, Math.floor(x1 * 2));
+  const top = Math.max(0, Math.floor(y1 * 2));
+  const right = Math.min(Math.ceil(width * 2), Math.ceil(x2 * 2));
+  const bottom = Math.min(Math.ceil(height * 2), Math.ceil(y2 * 2));
+  if (right <= left || bottom <= top) throw new Error('EMPTY_REGION');
+  return [left / 2, top / 2, (right - left) / 2, (bottom - top) / 2];
+}
