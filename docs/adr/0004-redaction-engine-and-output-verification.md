@@ -35,7 +35,7 @@ References checked 9 November 2026. Save the benchmark results, tested engine ve
 
 ## Verification gate
 
-Reopen the candidate with a separately implemented parser/renderer where feasible, never just inspect the engine's in-memory document. Record the candidate hash, checker versions and these checks:
+Reopen the exact candidate bytes with a separately implemented parser and renderer. Independence is mandatory for publication: invoking the removal engine in another process, or using another wrapper around the same PDF implementation, does not qualify. Never just inspect the engine's in-memory document. The checker may use separate components for structural/text inspection and rendering, but neither may rely on the removal engine to interpret the output. Record the candidate hash, checker versions and these checks:
 
 1. Valid PDF, expected page inventory/geometry, bounded output and successful rendering of every page.
 2. Selected text absent from the relevant decoded content/regions; synthetic whole-document canaries absent from all decoded structures. Unmarked duplicate text elsewhere must be treated according to its review decision, not confused with a failed local redaction.
@@ -44,6 +44,12 @@ Reopen the candidate with a separately implemented parser/renderer where feasibl
 5. Visual checks for mask coverage and unintended changes outside marked regions, followed by human review of the sanitized candidate.
 
 Unknown, failed or skipped mandatory checks block publication. Verification is evidence about the chosen marks/profile, not certification that no sensitive information remains anywhere. Checks must not copy removed text into logs or shareable manifests.
+
+Before enabling any export profile, S03 must produce a versioned verification contract: supported inputs, removal/sanitization policy, independent checker implementations, required checks and their pass criteria. Bind its version/hash and effective engine/checker settings to verification evidence and release approvals. A changed contract invalidates dependent verification and approvals.
+
+For structural removal, the independent checks must cover decoded text and objects, forbidden hidden structures, retained image/vector assets and rendering of every page. For fresh raster output, independently establish that the PDF contains only the profile's permitted image/page structures and metadata, no text/OCR layer or source attachments, and that every page renders with the required masks and acceptable changes outside them. The existing text-removal check is satisfied by establishing the image-only output contract, not by searching compressed bytes. Shared-image and hidden-data fixtures remain mandatory for profile qualification.
+
+Distinguish profile-qualification fixtures from per-candidate checks. Synthetic canaries and known source assets establish capability in the fixture corpus; they are not available for every real document. Every real candidate must still pass its contract's runtime checks. Unsupported input features, unavailable checkers, parser disagreement, timeout or an indeterminate mandatory result block publication. An unavailable profile can remain an investigation tool producing private candidates, but cannot be enabled for release through a warning or override.
 
 ## Alternatives and consequences
 
@@ -54,3 +60,5 @@ Unknown, failed or skipped mandatory checks block publication. Verification is e
 ## Acceptance evidence
 
 Publish a reproducible fixture/result matrix covering rotated and fragmented text, ligatures, hidden OCR, forms, shared images, vector content, annotations, embedded files, tags, old revisions and malformed inputs. Demonstrate blocked publication for failed checks and a passing candidate review/export using the packaged runtime.
+
+The matrix must identify the removal engine and independent parser/renderer implementations and versions. Disable or kill each mandatory checker, change the verification-contract version and introduce parser disagreement; all must invalidate or block publication. Include a zero-mark sanitized export in each qualified profile.
