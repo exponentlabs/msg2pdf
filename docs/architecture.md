@@ -2,6 +2,8 @@
 
 msg2pdf is a strict TypeScript application with a shared conversion core, isolated Electron processes and a bundled terminal launcher. It performs no background network requests.
 
+The planned redaction studio is documented separately in the [architecture decisions](adr/README.md) and [implementation plan](redaction-studio-plan.md). Its working-folder flow is **Exported → For Redaction → Redacted for sharing**. Those documents describe future capabilities; the layers below describe the implemented converter.
+
 ## Layers
 
 ```text

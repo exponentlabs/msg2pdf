@@ -33,3 +33,21 @@ Local validation uses macOS / Apple Silicon, Node 24.22.1, pnpm 12.16.1 and Elec
 The previous main-branch [native CI run](https://github.com/exponentlabs/msg2pdf/actions/runs/42193195573), at commit `8333b42c1770eca826d928662ce0e1078102dd76`, passed on macOS Apple Silicon/Intel, Windows x64 and Ubuntu. This is baseline evidence; release-preparation changes require a new native run.
 
 Native Windows and Linux CI must pass on the intended release commit before those artifacts are distributed. Signing services and notarisation require release credentials and cannot be validated with ad-hoc development builds. Windows console Ctrl+C and optional Office conversion need native platform validation.
+
+## Development handoff — 9 November 2026
+
+The current converter passed `pnpm check` on macOS / Apple Silicon with Node 24.18.0 and pnpm 12.16.1: 47 unit tests and 5 Electron integration tests passed; the optional LibreOffice integration test skipped. The existing macOS isolation tests needed to run outside the agent's execution sandbox. This was a source check, not a packaged-release or Fedora result.
+
+The next development environment is **Fedora ARM64 in a desktop VM on the Mac**. Follow the [Linux development guide](linux-development.md). Record the guest's exact Fedora release and VM configuration when executing these checks:
+
+| Target check                                                             | Handoff status                             |
+| ------------------------------------------------------------------------ | ------------------------------------------ |
+| Native guest `linux/arm64` Node 24 and pinned pnpm                       | Pending in Fedora VM                       |
+| Interactive `pnpm dev` and synthetic mail/PDF smoke test                 | Pending in Fedora VM                       |
+| `xvfb-run -a pnpm check`                                                 | Pending in Fedora VM                       |
+| `pnpm audit:production`                                                  | Pending for transferred checkout           |
+| `pnpm package:dir` and `xvfb-run -a pnpm test:packaged`                  | Pending in Fedora VM                       |
+| Supported LibreOffice plus real bubblewrap-isolated integration test     | Pending; optional dependency               |
+| Proposed redaction engine/viewer/verifier and SQLite ARM64 compatibility | Future S03 work; dependencies not selected |
+
+Ubuntu x64 CI and macOS ARM64 checks do not establish Linux ARM64 or Fedora/SELinux compatibility. Mark these rows passed only with executed guest results and relevant version/skip details.

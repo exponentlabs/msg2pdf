@@ -4,6 +4,8 @@
 
 Use Node 24 LTS and the pnpm version pinned in `package.json`. Install with `pnpm install --frozen-lockfile` and run `pnpm check` before packaging.
 
+For Fedora ARM64 development in a desktop VM, use the [Linux development guide](linux-development.md). It distinguishes local development and unpacked ARM64 validation from the current Ubuntu x64 CI and AppImage/DEB installer targets.
+
 Build on each target OS. On Windows, use an MSVC Developer Command Prompt with the C++ tools and Windows SDK installed. Linux needs GTK 3, NSS, ALSA and Xvfb for headless tests; Office conversion also needs bubblewrap. The CI workflow installs these prerequisites on native runners.
 
 ```sh

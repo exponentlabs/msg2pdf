@@ -56,6 +56,8 @@ pnpm dev
 
 On Windows, build from an MSVC Developer Command Prompt with the C++ build tools and Windows SDK installed. Linux requires the desktop libraries listed in [distribution](docs/distribution.md).
 
+For a move to another development machine, see the [Linux development and handoff guide](docs/linux-development.md), including Fedora ARM64 VM setup, dependency reinstall, sandbox diagnostics and source transfer.
+
 ```sh
 pnpm check         # types, lint, unit tests, build and Electron integration tests
 pnpm package       # installers for the current OS and architecture
@@ -76,3 +78,5 @@ Local history stores file paths and counts, never message bodies. Clear it in **
 Copyright 2026 Exponent Labs. Original code and documentation are licensed under [Apache-2.0](LICENSE). Third-party components and fonts retain their own licences; distributions include [NOTICE](NOTICE) and [third-party notices](resources/THIRD_PARTY_NOTICES.txt). LibreOffice is not bundled.
 
 See [contributing](CONTRIBUTING.md), [architecture](docs/architecture.md), [design system](docs/design-system.md) and [licensing](docs/licensing.md).
+
+The planned redaction studio has a gated working-folder process: **Exported → For Redaction → Redacted for sharing**. See the [architecture decisions](docs/adr/README.md) and [implementation plan](docs/redaction-studio-plan.md). Redaction is not implemented in the current converter.

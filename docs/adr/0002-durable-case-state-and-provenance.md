@@ -1,0 +1,58 @@
+# ADR 0002: Durable case state, revision provenance and recovery
+
+- Status: Proposed
+- Date: 9 November 2026
+- Scope: Persistence and filesystem transactions
+
+## Context
+
+`AppStore` retains 20 recent batch summaries and at most 500 results per summary. That is useful activity history, but cannot serve as the full record of a redaction case. Approvals must refer to exact bytes and decisions, and filesystem writes cannot be committed atomically with database transactions.
+
+## Decision
+
+Use a versioned SQLite database per case for complete structured state. Keep document bytes outside the database in managed paths. Select and test the SQLite binding against the packaged Electron runtime before adding a dependency; the host Node version is not evidence of packaged compatibility. Keep `AppStore` for preferences and recent-case pointers.
+
+Model these records explicitly:
+
+| Record              | Identity and evidence                                                         |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Case                | ID, schema version, creation time, policy version                             |
+| Document/source     | ID, source hash/size, private original name/origin, intake ID                 |
+| Family edge         | Parent, child, attachment disposition, extraction outcome                     |
+| Review revision     | Source/parent hash, PDF hash, page boxes/rotations, converter version/options |
+| Redaction plan      | Revision hash, plan revision, page regions, reasons, reviewer decisions       |
+| Candidate           | PDF hash, plan hash, engine/settings version, sanitizer profile               |
+| Verification/review | Candidate hash, check results, reviewer identity label, time, scope           |
+| Release             | Frozen member/disposition manifest, approval, published path, artifact hashes |
+| Operation/event     | Operation ID, expected state version, intent, outcome, recovery evidence      |
+
+Use SHA-256 hashes of captured artifact bytes and a deterministic serialization for plan/policy hashes. Hashes establish content identity and detect changes; they do not prove who operated the app or protect against an attacker rewriting both files and database. Actor labels in a local single-user app are attribution, not authenticated signatures.
+
+Store append-only application events with each state transition in the same database transaction. Events reference IDs and reason codes; avoid duplicating source text, search phrases or original filenames. This is a local audit history, not an independently tamper-proof ledger.
+
+Use one writer per working folder, optimistic state-version checks and bounded worker jobs. GUI and CLI obtain the same case lock and invoke the same transition service. Reject concurrent modification rather than silently replacing a newer plan.
+
+## Commit and recovery protocol
+
+1. Persist an operation intent with expected input hashes and state version.
+2. Produce private artifacts in case-local staging; close, sync and validate their bytes. Recheck gate evidence before finalizing.
+3. For a release, include the final allowlisted manifest and all output hashes in the staged package. Record the prepared outcome durably.
+4. Promote the complete directory on the same filesystem to a fresh, non-existing release ID under the case lock. Never overwrite an existing release. Validate destination ancestry and filesystem capabilities.
+5. Commit the published state/event. On restart reconcile unfinished operations before enabling release actions.
+
+After a crash before promotion, no package is public. After promotion but before the final database commit, recovery compares the prepared intent, manifest and every artifact hash before completing the record. Unexpected directories, missing files or mismatches become integrity blockers; they are not accepted as successful releases. This closes application recovery gaps without claiming a database/filesystem distributed transaction.
+
+Back up a case through a consistent snapshot that includes its database and all referenced artifacts; do not copy a live database file in isolation. Version migrations transactionally, preserve a recoverable pre-migration backup and reject newer unsupported schemas. Initial support is for trusted local filesystems; network shares, concurrent sync and multi-user editing are outside the first release's guarantees.
+
+## Alternatives and consequences
+
+- Extending bounded activity JSON loses full provenance. A full JSON manifest plus journal is viable but requires rebuilding indexing and transactional updates.
+- SQLite adds runtime packaging and migration work; it supplies a clear transaction boundary for state and events.
+- Case-local staging enables same-volume promotion but requires disk-space accounting and recovery cleanup.
+
+## Acceptance evidence
+
+- Kill the process at each commit boundary, reopen and observe either the previous state or a fully reconciled operation.
+- Stale plan writes and stale approvals are rejected with actionable blockers.
+- External changes, duplicate inputs, case relocation, unsupported schemas and competing app instances have defined outcomes.
+- Backup/restore preserves document relationships and evidence; missing artifacts block dependent transitions.
