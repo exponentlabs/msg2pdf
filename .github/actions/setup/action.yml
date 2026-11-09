@@ -1,0 +1,51 @@
+name: Set up project dependencies
+description: Install pinned tools and cache package/runtime downloads without caching node_modules
+inputs:
+  desktop:
+    description: Fetch Electron and configure native desktop build prerequisites
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@9bbca1e9dc2902adb87e8780fe5c98796985a62d # v6.1.1
+      with:
+        version: 12.16.1
+        run_install: false
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+    - name: Identify pinned Electron version
+      id: electron
+      if: inputs.desktop == 'true'
+      shell: bash
+      run: node -e 'require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT, `version=${require("./package.json").devDependencies.electron}\n`)'
+    - name: Cache Electron downloads
+      if: inputs.desktop == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/electron-cache
+        key: electron-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.electron.outputs.version }}
+    - name: Install locked dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Fetch the pinned desktop runtime
+      if: inputs.desktop == 'true'
+      shell: bash
+      env:
+        electron_config_cache: ${{ runner.temp }}/electron-cache
+      run: pnpm exec install-electron --no
+    - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c # v1.13.0
+      if: inputs.desktop == 'true' && runner.os == 'Windows'
+    - name: Linux desktop libraries
+      if: inputs.desktop == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 bubblewrap
+    - name: Configure Chromium's sandbox on the ephemeral Linux runner
+      if: inputs.desktop == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo chown root:root node_modules/electron/dist/chrome-sandbox
+        sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+        echo "CHROME_DEVEL_SANDBOX=$GITHUB_WORKSPACE/node_modules/electron/dist/chrome-sandbox" >> "$GITHUB_ENV"

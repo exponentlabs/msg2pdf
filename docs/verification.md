@@ -12,6 +12,8 @@ pnpm test:packaged
 
 `pnpm check` runs strict TypeScript, Biome, unit tests, production bundling and real Electron integration tests. Set `MSG2PDF_TEST_OFFICE` to a supported local LibreOffice executable to include real DOCX conversion; otherwise that optional test skips explicitly.
 
+It also runs `pnpm docs:check`, which checks repository-relative inline Markdown file links in root/docs/GitHub documents without fetching external URLs or checking heading anchors. CI always reports an aggregate **CI** result: documentation-only changes run lint/link checks, and other changes require a successful preflight plus all four native jobs. Missing comparison evidence falls back to native verification. Unit tests cover classification, aggregate status handling and the manual-installer publishing contract. New workflow behavior still needs a hosted run on the changed revision; local checks cannot establish runner-cache or platform results.
+
 Unit coverage includes portable/colliding filenames, unsafe paths and symlinks, atomic commits, directory locks, file discovery, email encodings, MIME/CID resources, attachment failures, malicious HTML/styles/URLs, S/MIME handling, RTF, resource limits, cancellation and release signing prerequisites. macOS Office tests check that the isolated process cannot read an unrelated file or reach a local TCP server.
 
 Electron integration tests exercise GUI selection/planning, preview isolation, real PDF printing, attachments, history, reports, Office setup controls, terminal output/exit codes, cancellation and safe shutdown. Visual checks cover all screens and the minimum 980 × 720 window, bundled fonts, horizontal overflow and reduced-transparency preferences.

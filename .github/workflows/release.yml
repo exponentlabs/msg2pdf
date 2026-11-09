@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       run_id:
-        description: Successful main-branch build run containing installer artifacts
+        description: Successful manual main-branch CI run with installers enabled (within three days)
         required: true
         type: string
 permissions:
@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -25,7 +26,14 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag }}
       BUILD_RUN_ID: ${{ inputs.run_id }}
     steps:
-      - name: Verify the tag matches a successful main build and draft release
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Read the requested build, tag and draft release
         shell: bash
         run: |
           set -euo pipefail
@@ -33,21 +41,10 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > build.json
           gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" > tag.json
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName > release.json
-          node <<'JS'
-          const assert = require('node:assert/strict');
-          const fs = require('node:fs');
-          const build = JSON.parse(fs.readFileSync('build.json'));
-          const tag = JSON.parse(fs.readFileSync('tag.json'));
-          const release = JSON.parse(fs.readFileSync('release.json'));
-          assert.equal(build.status, 'completed');
-          assert.equal(build.conclusion, 'success');
-          assert.equal(build.event, 'push');
-          assert.equal(build.head_branch, 'main');
-          assert.equal(build.path, '.github/workflows/ci.yml');
-          assert.equal(build.head_sha, tag.sha);
-          assert.equal(release.tagName, process.env.RELEASE_TAG);
-          assert.equal(release.isDraft, true);
-          JS
+      - name: Download explicit installer provenance
+        run: gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name installer-source --dir artifacts/installer-source
+      - name: Verify the manual build, current attempt and exact tag
+        run: node scripts/ci-policy.cjs verify-release
       - name: Download verified installers
         run: gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'installers-*' --dir artifacts
       - name: Collect all platforms and generate checksums
