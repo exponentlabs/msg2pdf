@@ -167,8 +167,8 @@ importers:
   .:
     dependencies:
       '@kenjiuno/decompressrtf':
-        specifier: 0.1.3
-        version: 0.1.3
+        specifier: 0.1.4
+        version: 0.1.4
       '@kenjiuno/msgreader':
         specifier: 1.29.0
         version: 1.29.0
@@ -541,9 +541,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
-
-  '@kenjiuno/decompressrtf@0.1.3':
-    resolution: {integrity: sha512-Hpgi2jbP73+2Lri8MJ/Jbf8ZIViuG4Z4UsPU3bEqWB6MY8Z6kd8KDLmw/5pUVQq4gvKtDUto8DtXSuEUo3fpPA==}
 
   '@kenjiuno/decompressrtf@0.1.4':
     resolution: {integrity: sha512-v9c/iFz17jRWyd2cRnrvJg4VOg/4I/VCk+bG8JnoX2gJ9sAesPzo3uTqcmlVXdpasTI8hChpBVw00pghKe3qTQ==}
@@ -2467,8 +2464,6 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
-
-  '@kenjiuno/decompressrtf@0.1.3': {}
 
   '@kenjiuno/decompressrtf@0.1.4': {}
 
