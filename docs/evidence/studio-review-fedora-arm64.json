@@ -1,0 +1,82 @@
+{
+  "recordedAt": "2026-11-09T23:30:34.150Z",
+  "reviewedBaseCommit": "33a2215f576a80bda0e152cb254e333f7b535ea4",
+  "implementationCommit": "fe46de6a6b41378ffd9e7c5080635eb6bdca2e9b",
+  "target": {
+    "os": "Fedora release 44 (Forty Four)",
+    "arch": "arm64",
+    "kernel": "7.2.15-200.fc44.aarch64",
+    "selinux": "Enforcing",
+    "filesystem": "btrfs"
+  },
+  "studioPolicy": "fedora-studio-policy-v2",
+  "packagedRuntime": {
+    "electron": "45.2.3",
+    "node": "24.22.2",
+    "sqlite": "3.53.4",
+    "chrome": "156.0.8078.80"
+  },
+  "systemPackages": [
+    "qpdf-12.3.2-1.fc44.aarch64",
+    "qpdf-libs-12.3.2-1.fc44.aarch64",
+    "poppler-26.01.0-3.fc44.aarch64",
+    "poppler-utils-26.01.0-3.fc44.aarch64",
+    "bubblewrap-0.12.0-1.fc44.aarch64",
+    "util-linux-2.41.6-1.fc44.aarch64"
+  ],
+  "libreOffice": "LibreOffice 26.2.7.3 620(Build:3)",
+  "hashes": {
+    "asar": "ffd58fc045b99bbf6efb2b68065786cbf82148886037ee0d1697eab243ccbf3a",
+    "nativeAdapter": "e0495f4c4f37ebfad9fa56ccd4ac83c0b9c0e8f02b7ceffe118e33bfe7bcc872",
+    "executable": "a4ff9c72aa006d97201f7d9aaad56001c7f96a19c044cfdabbcd1dd6eeba1d57",
+    "contract": "4afcf785aaeb9183f44cfc82e8182d8f6148f0cca2ba4d08b36ce2434a6e2693",
+    "lockfile": "1dbfba7bcf0195875f78ec84084054024f94b89f275f85116f27fced8cf89907"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "biome": "passed",
+    "unit": {
+      "passed": 91,
+      "skipped": 2,
+      "skipReason": "macOS-only Office isolation checks"
+    },
+    "electron": {
+      "passed": 9,
+      "skipped": 0,
+      "includesRealOffice": true,
+      "multiZoomRotatedCropGeometry": true
+    },
+    "sanitization": {
+      "passed": 37,
+      "evidence": "b1-review-fedora-arm64.json"
+    },
+    "nativeOwnership": {
+      "persistentFileAndDirectoryGuards": true,
+      "liveMetadataDeletion": "CASE_BUSY",
+      "heldPathIdentityValidation": true,
+      "processKillBoundaries": ["intent", "prepared", "promoted", "committed"],
+      "racingOpeners": true
+    },
+    "regressions": [
+      "nonblocking FIFO intake",
+      "50000-fragment bounded search",
+      "frozen private family decisions",
+      "neutral manifest check outcomes",
+      "unreadable attachment identities",
+      "retained signed MSG wrapper",
+      "tracked case-local Office scratch recovery",
+      "nested/aliased destination rejection and unchanged permissions",
+      "GUI/CLI error codes",
+      "stage queue filters and visible blockers",
+      "stale-policy processing rejection with read and backup access"
+    ],
+    "productionAudit": "no known vulnerabilities",
+    "portablePackage": "passed",
+    "packagedConverter": "passed",
+    "packagedStudio": "passed"
+  },
+  "githubActions": {
+    "runsRequested": 0
+  },
+  "scope": "Initial bounded Fedora ARM64 profile. Old development policy cases require fresh capture/review; no automatic approval migration. Process-termination recovery only; no other studio platform or signed-distribution claim."
+}
