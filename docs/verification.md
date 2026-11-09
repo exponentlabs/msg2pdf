@@ -14,6 +14,12 @@ pnpm test:packaged
 
 It also runs `pnpm docs:check`, which checks repository-relative inline Markdown file links in root/docs/GitHub documents without fetching external URLs or checking heading anchors. CI always reports an aggregate **CI** result: documentation-only changes run lint/link checks, and other changes require a successful preflight plus all four native jobs. Missing comparison evidence falls back to native verification. Unit tests cover classification, aggregate status handling and the manual-installer publishing contract. New workflow behavior still needs a hosted run on the changed revision; local checks cannot establish runner-cache or platform results.
 
+## CI redesign validation — 9 November 2026
+
+The [native verification run](https://github.com/exponentlabs/msg2pdf/actions/runs/42684178960) at commit `e4e17675f3a1a8be061a41fbd0f43ea1b3bd2ba8` passed the shared preflight, macOS ARM64/Intel, Windows x64, Ubuntu x64 and aggregate CI gate. Every native job ran unit tests, build, Electron integration tests and packaged-runtime verification. The run uploaded **zero artifacts**, skipped installer production and populated the pnpm/Electron download caches. Local `pnpm check` passed 52 unit tests and 5 Electron integration tests, with the optional LibreOffice test skipped; actionlint also passed all three workflows.
+
+The documentation-only smoke test is the subsequent commit adding this record. Its expected result is successful source/documentation checks and aggregate CI, with the native matrix skipped and no uploaded artifacts. Manual installer creation, signed release preparation and actual prerelease publication were not dispatched during this validation; publishing guards were exercised with synthetic acceptance/rejection tests.
+
 Unit coverage includes portable/colliding filenames, unsafe paths and symlinks, atomic commits, directory locks, file discovery, email encodings, MIME/CID resources, attachment failures, malicious HTML/styles/URLs, S/MIME handling, RTF, resource limits, cancellation and release signing prerequisites. macOS Office tests check that the isolated process cannot read an unrelated file or reach a local TCP server.
 
 Electron integration tests exercise GUI selection/planning, preview isolation, real PDF printing, attachments, history, reports, Office setup controls, terminal output/exit codes, cancellation and safe shutdown. Visual checks cover all screens and the minimum 980 × 720 window, bundled fonts, horizontal overflow and reduced-transparency preferences.
