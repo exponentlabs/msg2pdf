@@ -3,6 +3,7 @@ import { build as bundle } from 'esbuild';
 import { build as buildRenderer } from 'vite';
 import './build-native.mjs';
 import './licenses.mjs';
+import { buildStudio } from './build-studio.mjs';
 
 await rm('out', { recursive: true, force: true });
 const common = {
@@ -26,3 +27,4 @@ await Promise.all([
   bundle({ ...common, entryPoints: ['src/terminal/index.ts'], outfile: 'out/terminal/index.cjs' }),
 ]);
 await buildRenderer();
+await buildStudio();
