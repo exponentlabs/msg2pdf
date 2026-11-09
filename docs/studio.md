@@ -63,3 +63,5 @@ xvfb-run -a pnpm test:packaged:studio
 ```
 
 The studio packaged check consumes a real GUI-created approval, publishes through the packaged CLI, compares all public bytes against the manifest, regenerates candidates with the packaged workers, prepares a fresh capture and rejects CLI review bypass. Store tests inject both exceptions and actual SIGKILL at intent/prepared/promoted/committed boundaries, race two reopeners, and exercise tampering, symlinks, backup/relocation and future-schema rejection. The [37-check sanitization evidence](evidence/b1-qualification-fedora-arm64.json) covers fractional edges and the adversarial PDF corpus. The isolated B1 harness remains incapable of granting a case or release approval.
+
+The [final native qualification record](evidence/studio-fedora-arm64.json) captures the tested implementation commit, packaged ASAR/executable/native-adapter hashes, runtime and system package versions, native Btrfs recovery results and exact check counts.

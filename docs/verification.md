@@ -67,3 +67,5 @@ The initial bounded [studio workflow](studio.md) is implemented on Fedora 44 ARM
 Production dependency audit reports no known vulnerabilities. Run `pnpm package:dir`, `xvfb-run -a pnpm test:packaged` and `xvfb-run -a pnpm test:packaged:studio` to reproduce the production archive/fuse/CLI and studio checks. The studio check uses the production packaged engine/assembler/checkers/native lock and consumes a genuine GUI-recorded approval; it has no shipped review-bypass or debugging switch.
 
 These results qualify local development on this target. They do not establish other studio platforms, signed/notarized distribution, native-file redaction, loss-free VM reset/power failure or authenticated multi-user approval. All iteration was local; no GitHub Actions runs were requested for this workstream.
+
+The [final native qualification JSON](evidence/studio-fedora-arm64.json) binds these results to implementation commit `02579ffc35920afc2efae1ecf1ddfa243a1e0f94` and its actual packaged hashes. The subsequent source change tightens the viewport test to await the exact 980-pixel content width; that targeted Electron test also passes.

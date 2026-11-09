@@ -1,0 +1,71 @@
+{
+  "recordedAt": "2026-11-09T22:54:37.709Z",
+  "implementationCommit": "02579ffc35920afc2efae1ecf1ddfa243a1e0f94",
+  "target": {
+    "os": "Fedora release 44 (Forty Four)",
+    "arch": "arm64",
+    "kernel": "7.2.15-200.fc44.aarch64",
+    "selinux": "Enforcing",
+    "filesystem": "btrfs"
+  },
+  "hostNode": "v24.18.0",
+  "packagedRuntime": {
+    "electron": "45.2.3",
+    "node": "24.22.2",
+    "sqlite": "3.53.4",
+    "chrome": "156.0.8078.80"
+  },
+  "systemPackages": [
+    "qpdf-12.3.2-1.fc44.aarch64",
+    "qpdf-libs-12.3.2-1.fc44.aarch64",
+    "poppler-26.01.0-3.fc44.aarch64",
+    "poppler-utils-26.01.0-3.fc44.aarch64",
+    "bubblewrap-0.12.0-1.fc44.aarch64",
+    "util-linux-2.41.6-1.fc44.aarch64"
+  ],
+  "libreOffice": "LibreOffice 26.2.7.3 620(Build:3)",
+  "hashes": {
+    "asar": "33ae162f1f99f697ab33e29b41f3ccdbd482b10153b4d0069bba510432117332",
+    "nativeAdapter": "4e40804613f382324c0fe20668c78380d304e1d7edbf822e4f68b3d9f762f100",
+    "executable": "a4ff9c72aa006d97201f7d9aaad56001c7f96a19c044cfdabbcd1dd6eeba1d57",
+    "contract": "4afcf785aaeb9183f44cfc82e8182d8f6148f0cca2ba4d08b36ce2434a6e2693",
+    "lockfile": "1dbfba7bcf0195875f78ec84084054024f94b89f275f85116f27fced8cf89907"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "biome": "passed",
+    "unit": {
+      "passed": 83,
+      "skipped": 2,
+      "skipReason": "macOS-only Office isolation tests; Fedora studio support does not claim macOS"
+    },
+    "electron": {
+      "passed": 8,
+      "skipped": 0,
+      "includesRealOffice": true
+    },
+    "sanitization": {
+      "passed": 37,
+      "evidence": "b1-qualification-fedora-arm64.json"
+    },
+    "processTermination": {
+      "boundaries": [
+        "intent",
+        "prepared",
+        "promoted",
+        "committed"
+      ],
+      "actualSIGKILL": true,
+      "twoOpenerRace": true,
+      "filesystem": "btrfs"
+    },
+    "productionAudit": "no known vulnerabilities",
+    "portablePackage": "passed",
+    "packagedConverter": "passed",
+    "packagedStudio": "passed"
+  },
+  "githubActions": {
+    "runsRequested": 0
+  },
+  "scope": "Bounded initial Fedora 44 ARM64 studio. Process-termination recovery; no VM-reset/power-loss guarantee. No other studio target or signed distribution qualification."
+}

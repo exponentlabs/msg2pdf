@@ -151,9 +151,9 @@ test('Fedora studio captures fixed pages, marks, reviews and reopens durable pla
     }
     await window.getByRole('button', { name: 'Publish approved release', exact: true }).click();
     await expect(window.getByText('1 immutable releases', { exact: true })).toBeVisible();
-    await application.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.setSize(980, 720);
-    });
+    const nativeWindow = await application.browserWindow(window);
+    await nativeWindow.evaluate((window) => window.setContentSize(980, 720));
+    await expect.poll(() => window.evaluate('innerWidth')).toBe(980);
     expect(
       await window.evaluate(
         'document.documentElement.scrollWidth <= document.documentElement.clientWidth',
