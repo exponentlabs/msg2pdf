@@ -51,3 +51,9 @@ The next development environment is **Fedora ARM64 in a desktop VM on the Mac**.
 | Proposed redaction engine/viewer/verifier and SQLite ARM64 compatibility | Future S03 work; dependencies not selected |
 
 Ubuntu x64 CI and macOS ARM64 checks do not establish Linux ARM64 or Fedora/SELinux compatibility. Mark these rows passed only with executed guest results and relevant version/skip details.
+
+## B1 packaged adapter experiment — 9 November 2026
+
+The separate [B1 Fedora ARM64 report](b1-fedora-arm64.md) and [machine-readable evidence](evidence/b1-fedora-arm64.json) record 16 passing compatibility checks for packaged SQLite/OS locks, PDF.js viewing/text selection, raster assembly, external structural-removal evaluation and independently checked saved PDFs. The evaluation contract remains release-disabled; no production redaction/profile qualification is implied.
+
+On Fedora 44 ARM64 with SELinux Enforcing and kernel `7.2.15-200.fc44.aarch64`, the ordinary converter also passed `xvfb-run -a pnpm check` (45 unit tests and 5 Electron tests; 2 macOS-only unit skips and 1 optional Office integration skip), `pnpm audit:production`, `pnpm package:dir` and `xvfb-run -a pnpm test:packaged`. This preserves the converter baseline while the isolated development experiment proceeds.

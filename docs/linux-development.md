@@ -169,7 +169,7 @@ The proposed managed redaction cases and SQLite case store are not implemented y
 
 Read [CONTRIBUTING](../CONTRIBUTING.md), [architecture](architecture.md), the [ADR index](adr/README.md) and the [implementation plan](redaction-studio-plan.md). These are the durable handoff; the previous chat is not required to understand the work.
 
-Current state: the converter is implemented; the studio has six planning ADRs and eleven work packages. The three-stage product direction is accepted; detailed architecture is proposed. No PDF redaction engine, viewer editing workflow or case database dependency has been selected/added.
+Current state: the converter is implemented; the studio has eight ADRs and eleven work packages. The three-stage product direction and Fedora ARM64 storage/lock approach are accepted within their recorded scopes. The [B1 compatibility experiment](b1-fedora-arm64.md) proves packaged adapters locally and records remaining profile-qualification gaps. Built-in SQLite is selected for local case-store development; no studio database, production viewer editor or release-enabled redaction engine/profile is implemented.
 
 Start with S01–S03 and work toward M1: one PDF captured in a case, marked, saved/reopened, sanitized, reviewed and published through the shared gates. Include Linux ARM64 in the engine and SQLite-binding spikes, not just macOS ARM64 or Linux x64. Do not change distribution licensing or add a paid dependency without resolving that choice explicitly.
 

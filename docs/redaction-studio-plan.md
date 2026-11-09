@@ -12,7 +12,7 @@ Open a local working folder, import exported mail/documents, prepare fixed PDF p
 
 The first complete slice is a single PDF with a manual region, saved case state, sanitized candidate review and gated publication. It must demonstrate real removal and recovery. Extend that slice to email/Office inputs, attachment families, text selection and phrase search before calling it the first studio release. Build by these observable outcomes rather than a calendar estimate.
 
-Architecture decisions are in the [ADR index](adr/README.md). Only the three-stage product direction is accepted; detailed decisions are proposed and can be refined as the working slices produce evidence.
+Architecture decisions are in the [ADR index](adr/README.md). The three-stage product direction and Fedora ARM64 storage/lock approach are accepted within their recorded scopes; remaining detailed decisions are proposed and can be refined as the working slices produce evidence.
 
 ## Existing foundation and changes
 
@@ -71,6 +71,8 @@ S01 can proceed while S03 is investigated. S02's persistent implementation waits
 Each increment below is a reviewable feature-branch PR. Split a large increment further when needed, keeping the same exit criteria. All remain planned; this sequence does not authorize dependency purchases or change distribution licensing. Keep the existing converter available and passing throughout.
 
 ### B1: Prove the packaged adapters (S03)
+
+Local progress (9 November 2026): the [Fedora ARM64 compatibility spike](b1-fedora-arm64.md) demonstrates packaged SQLite/lock behavior and both PDF processing paths with independent local checks. [ADR 0007](adr/0007-fedora-arm64-storage-and-lock-spike.md) selects the Fedora storage/lock approach; [ADR 0008](adr/0008-pdf-adapter-compatibility-spike.md) records PDF candidates and limits. B1 remains open for full profile qualification and verifier distribution; no release-enabled profile is selected. The evidence unblocks B2 and then the selected Fedora storage portion of B3, not publication.
 
 Start here. Build a synthetic fixture runner and a compatibility report before production case state or editing UI. Evaluate one structural-removal path and one fresh-raster path without integrating an unresolved licence into the distributed app. Compare removal correctness, fidelity/accessibility, offline operation, native packaging and maintenance cost. Test the viewer and genuinely independent output parser/renderer alongside the removal engine.
 
