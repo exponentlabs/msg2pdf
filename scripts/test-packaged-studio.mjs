@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { promisify } from 'node:util';
 import { listPackage } from '@electron/asar';
 
@@ -51,6 +52,50 @@ try {
     }
   };
   const before = await cli('status', working);
+  const holder = spawn(
+    join(packaged, 'msg2pdf'),
+    [
+      '-e',
+      `
+    const [binary, root]=process.argv.slice(1);const lock=require(binary);
+    lock.guard(root);lock.acquire(root+'/.studio/locks/case.lock');
+    console.log('OWNED');setInterval(()=>{},1000);`,
+      join(packaged, 'resources/native/studio-lock.node'),
+      working,
+    ],
+    { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+  try {
+    await new Promise((resolveReady, reject) => {
+      const timer = setTimeout(() => reject(new Error('Native guard timed out')), 15000);
+      holder.once('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      holder.once('exit', () => {
+        clearTimeout(timer);
+        reject(new Error('Native guard exited'));
+      });
+      holder.stdout.on('data', (chunk) => {
+        if (chunk.toString().includes('OWNED')) {
+          clearTimeout(timer);
+          resolveReady();
+        }
+      });
+    });
+    await rm(join(working, '.studio/locks/case.lock'));
+    await assert.rejects(
+      cli('status', working),
+      (error) => JSON.parse(error.cause.stdout).code === 'CASE_BUSY',
+    );
+  } finally {
+    if (holder.exitCode === null && holder.signalCode === null) {
+      const stopped = new Promise((resolveExit) => holder.once('exit', resolveExit));
+      holder.kill('SIGKILL');
+      await stopped;
+    }
+  }
+  assert.equal((await cli('status', working)).version, before.version);
   assert.equal(before.available, true);
   assert.equal(before.releases.length, 0);
   assert.deepEqual(before.documents[0].blockers, []);
@@ -82,6 +127,17 @@ try {
   assert(prepared.documents.at(-1).blockers.some((blocker) => blocker.code === 'PAGE_UNREVIEWED'));
   await assert.rejects(cli('apply', working, id, String(prepared.version)), /PAGE_UNREVIEWED/);
   await assert.rejects(cli('approve', working), /Usage:/);
+  const earlier = join(root, 'earlier-policy');
+  await cli('backup', working, earlier);
+  const db = new DatabaseSync(join(earlier, '.studio/case.sqlite'));
+  const row = db.prepare('SELECT json FROM state').get();
+  const oldState = JSON.parse(row.json);
+  oldState.policyHash = '0'.repeat(64);
+  db.prepare('UPDATE state SET json=?').run(JSON.stringify(oldState));
+  db.close();
+  assert.equal((await cli('status', earlier)).policyCurrent, false);
+  await assert.rejects(cli('apply', earlier, id, String(prepared.version)), /CASE_POLICY_STALE/);
+  await cli('backup', earlier, join(root, 'earlier-policy-backup'));
   console.log(
     'Packaged Fedora ARM64 studio: assets, native lock, GUI approval consumption, atomic release, hashes, scoped preparation and CLI review-bypass rejection passed.',
   );

@@ -1,5 +1,16 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -129,6 +140,73 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
     await result.store.transition(next.version, next);
     return result;
   }
+  it('rejects FIFO intake without waiting for a writer', async () => {
+    const { store } = await setup();
+    const fifo = join(root, 'untrusted-pipe.pdf');
+    execFileSync('mkfifo', [fifo]);
+    await expect(store.capture(fifo, 0)).rejects.toThrow('Invalid source');
+    expect(store.state().version).toBe(0);
+    store.close();
+  });
+  it('does not admit a second owner after live lock metadata is deleted', async () => {
+    const { store, directory } = await setup();
+    await rm(join(directory, '.studio/locks/case.lock'));
+    await expect(CaseStore.open(directory, lock)).rejects.toMatchObject({ code: 'CASE_BUSY' });
+    await expect(store.validate()).rejects.toThrow();
+    store.close();
+    const reopened = await CaseStore.open(directory, lock);
+    await reopened.validate();
+    reopened.close();
+  });
+  it('recovers a tracked Office workspace after termination and preserves unexpected root files', async () => {
+    const first = await setup();
+    const job = await first.store.scratch(['office']);
+    await mkdir(join(job.path, 'office/profile/user'), { recursive: true, mode: 0o700 });
+    await writeFile(
+      join(job.path, 'office/profile/user/registrymodifications.xcu'),
+      'Private Office cache',
+    );
+    first.store.close();
+    const recovered = await CaseStore.open(first.directory, lock);
+    expect(await readdir(join(first.directory, '.studio/staging'))).toEqual([]);
+    recovered.close();
+    const second = await setup();
+    const unknown = await second.store.scratch(['office']);
+    await mkdir(join(unknown.path, 'office'), { mode: 0o700 });
+    await writeFile(join(unknown.path, 'office/unexpected-user-file'), 'Preserve evidence');
+    second.store.close();
+    await expect(CaseStore.open(second.directory, lock)).rejects.toThrow('CASE_INTEGRITY_ERROR');
+    expect(await readFile(join(unknown.path, 'office/unexpected-user-file'), 'utf8')).toBe(
+      'Preserve evidence',
+    );
+  });
+  it('rejects nested case/backup destinations and preserves permissions on nonempty choices', async () => {
+    const first = await setup();
+    const second = await setup();
+    await expect(
+      CaseStore.create(
+        join(first.directory, 'Exported', 'nested'),
+        lock,
+        evidenceHash('p'),
+        evidenceHash('c'),
+      ),
+    ).rejects.toThrow('managed case');
+    await expect(
+      second.store.backup(join(first.directory, 'For Redaction', 'backup')),
+    ).rejects.toThrow('managed case');
+    const occupied = await mkdtemp(join(root, 'occupied-'));
+    await chmod(occupied, 0o750);
+    await writeFile(join(occupied, 'user-file'), 'Preserve');
+    await expect(
+      CaseStore.create(occupied, lock, evidenceHash('p'), evidenceHash('c')),
+    ).rejects.toThrow('empty');
+    await expect(second.store.backup(occupied)).rejects.toThrow('empty');
+    expect((await stat(occupied)).mode & 0o777).toBe(0o750);
+    await first.store.validate();
+    await second.store.validate();
+    first.store.close();
+    second.store.close();
+  });
   it.each(['intent', 'prepared', 'promoted', 'committed'])(
     'recovers atomic approved publication at %s',
     async (boundary) => {
@@ -367,7 +445,7 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
     const { directory, store } = await setup();
     const alias = `${directory}-backup-alias`;
     await symlink(directory, alias);
-    await expect(store.backup(join(alias, 'nested-backup'))).rejects.toThrow('outside the case');
+    await expect(store.backup(join(alias, 'nested-backup'))).rejects.toThrow('managed case');
     store.close();
   });
 });

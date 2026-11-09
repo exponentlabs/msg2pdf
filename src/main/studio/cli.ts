@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import { z } from 'zod';
+import { requireCurrentPolicy } from '../../core/studio/domain';
 import { StudioService } from './service';
 import { CaseStore, nativeCaseLock } from './store';
 
@@ -31,6 +32,7 @@ export async function runStudioCli(args: string[], signal: AbortSignal): Promise
       ),
     );
     signal.throwIfAborted();
+    if (command === 'capture') requireCurrentPolicy(service.store.state());
     const version = (value: string | undefined) =>
       z.coerce.number().int().nonnegative().parse(value);
     await service.run(async (taskSignal) => {
@@ -54,6 +56,7 @@ export async function runStudioCli(args: string[], signal: AbortSignal): Promise
       available: view.available,
       caseId: view.case?.state.id,
       version: view.case?.state.version,
+      policyCurrent: view.case?.policyCurrent,
       documents: view.case?.state.documents.map((document) => ({
         id: document.id,
         stage: document.revision ? 'For Redaction' : 'Exported',

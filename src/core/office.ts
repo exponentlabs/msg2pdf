@@ -109,6 +109,7 @@ export async function officeSandbox(
   args: string[],
   workspacePath: string,
   windowsHelper: string,
+  visibleWorkspace?: '/work',
 ): Promise<{ executable: string; args: string[] }> {
   const workspace = await realpath(workspacePath);
   if (process.platform === 'darwin') {
@@ -178,9 +179,9 @@ export async function officeSandbox(
       '/tmp',
       '--bind',
       workspace,
-      workspace,
+      visibleWorkspace ?? workspace,
       '--chdir',
-      workspace,
+      visibleWorkspace ?? workspace,
       executable,
       ...args,
     );
@@ -234,6 +235,7 @@ export async function prepareOfficePdf(
   office: OfficeStatus,
   windowsHelper: string,
   signal?: AbortSignal,
+  scoped = false,
 ): Promise<Buffer> {
   if (!office.available || !office.executable) throw new Error('OFFICE_UNAVAILABLE');
   const sourceInfo = await lstat(source);
@@ -243,6 +245,9 @@ export async function prepareOfficePdf(
   await copyFile(source, input);
   const output = join(workspace, 'pdf');
   const profile = join(workspace, 'profile');
+  if (scoped && process.platform !== 'linux') throw new Error('Unsupported scoped Office target');
+  const visible = scoped ? '/work' : workspace;
+  if (scoped) await mkdir(join(workspace, 'tmp'));
   await mkdir(output);
   await mkdir(join(profile, 'user'), { recursive: true });
   await writeFile(
@@ -251,8 +256,8 @@ export async function prepareOfficePdf(
     { mode: 0o600 },
   );
   const args = [
-    `-env:UserInstallation=${pathToFileURL(profile).href}`,
-    `-env:OSL_SOCKET_PATH=${workspace}`,
+    `-env:UserInstallation=${pathToFileURL(join(visible, 'profile')).href}`,
+    `-env:OSL_SOCKET_PATH=${scoped ? '/work/tmp' : workspace}`,
     '--headless',
     '--nologo',
     '--nodefault',
@@ -260,22 +265,34 @@ export async function prepareOfficePdf(
     '--convert-to',
     'pdf',
     '--outdir',
-    output,
-    input,
+    join(visible, 'pdf'),
+    join(visible, basename(input)),
   ];
-  const command = await officeSandbox(office.executable, args, workspace, windowsHelper);
+  const command = await officeSandbox(
+    office.executable,
+    args,
+    workspace,
+    windowsHelper,
+    scoped ? '/work' : undefined,
+  );
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
     SystemRoot: process.env.SystemRoot,
     WINDIR: process.env.WINDIR,
     LANG: process.env.LANG || 'en_US.UTF-8',
-    HOME: workspace,
-    TMPDIR: workspace,
-    TEMP: workspace,
-    TMP: workspace,
-    XDG_CACHE_HOME: join(workspace, 'cache'),
+    HOME: visible,
+    TMPDIR: scoped ? '/work/tmp' : workspace,
+    TEMP: scoped ? '/work/tmp' : workspace,
+    TMP: scoped ? '/work/tmp' : workspace,
+    XDG_CACHE_HOME: join(visible, 'cache'),
+    ...(scoped
+      ? {
+          XDG_CONFIG_HOME: join(visible, 'profile/config'),
+          XDG_DATA_HOME: join(visible, 'profile/data'),
+        }
+      : {}),
     SAL_USE_VCLPLUGIN: 'svp',
-    OSL_SOCKET_PATH: workspace,
+    OSL_SOCKET_PATH: scoped ? '/work/tmp' : workspace,
   };
   await runProcess(command.executable, command.args, {
     timeoutMs: LIMITS.officeTimeoutMs,

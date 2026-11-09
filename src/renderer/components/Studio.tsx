@@ -11,6 +11,7 @@ export function Studio() {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState('');
   const [releaseSelection, setReleaseSelection] = useState<string[]>([]);
+  const [stage, setStage] = useState<'all' | 'exported' | 'review'>('all');
   const [exclusionReason, setExclusionReason] = useState('');
   const [coordinates, setCoordinates] = useState(['', '', '', '']);
   const [pages, setPages] = useState<Page[]>([]);
@@ -30,11 +31,17 @@ export function Studio() {
   const state = view?.case?.state;
   const document = state?.documents.find((item) => item.id === selected);
   const currentPage = pages[pageIndex];
+  const releaseIds = releaseSelection.length ? releaseSelection : document ? [document.id] : [];
   async function action(callback: () => Promise<StudioView>): Promise<void> {
     setBusy(true);
     setError('');
     try {
       const result = await callback();
+      if (result.case?.state.id !== view?.case?.state.id) {
+        setReleaseSelection([]);
+        setSelected('');
+        setStage('all');
+      }
       setView(result);
       if (!result.case) {
         setSelected('');
@@ -62,6 +69,7 @@ export function Studio() {
       .catch(() =>
         setView({
           available: false,
+          caseAccess: false,
           reason: 'The studio is currently qualified for Fedora ARM64.',
           profile: 'fedora-raster-v1',
         }),
@@ -204,7 +212,7 @@ export function Studio() {
           </button>
           <button
             type="button"
-            disabled={busy || !view?.available}
+            disabled={busy || !view?.caseAccess}
             onClick={() => void action(() => window.studio.open())}
           >
             Open working folder
@@ -251,6 +259,12 @@ export function Studio() {
       </p>
       {state && (
         <>
+          {!view?.case?.policyCurrent && (
+            <p role="alert">
+              This earlier development case is read-only. Back up the case and capture its originals
+              in a new working folder. Reviews and attachment inventories need fresh qualification.
+            </p>
+          )}
           <div className="studio-case">
             <h2>{view?.case?.label}</h2>
             <button
@@ -268,23 +282,42 @@ export function Studio() {
             <section>
               <h2>Exported</h2>
               <p>{state.documents.filter((item) => !item.revision).length} captured originals</p>
+              <button
+                type="button"
+                aria-pressed={stage === 'exported'}
+                onClick={() => setStage('exported')}
+              >
+                Show captured originals
+              </button>
             </section>
             <section>
               <h2>For Redaction</h2>
               <p>{state.documents.filter((item) => item.revision).length} fixed revisions</p>
+              <button
+                type="button"
+                aria-pressed={stage === 'review'}
+                onClick={() => setStage('review')}
+              >
+                Show review revisions
+              </button>
             </section>
             <section>
               <h2>Redacted for sharing</h2>
               <p>{state.releases?.length ?? 0} immutable releases</p>
               <button
                 type="button"
-                disabled={busy || !document || !!view?.case?.blockers[document.id]?.length}
+                disabled={
+                  busy ||
+                  !releaseIds.length ||
+                  releaseIds.some(
+                    (id) => !view?.case?.blockers[id] || !!view.case.blockers[id]?.length,
+                  )
+                }
                 onClick={() =>
-                  document &&
                   void action(() =>
                     window.studio.approveRelease({
                       version,
-                      selection: releaseSelection.length ? releaseSelection : [document.id],
+                      selection: releaseIds,
                     }),
                   )
                 }
@@ -301,7 +334,7 @@ export function Studio() {
                 </button>
               )}
               {state.releases?.map((release) => (
-                <p key={release.approval.manifest.releaseId}>
+                <div key={release.approval.manifest.releaseId}>
                   {release.path} · {release.approval.manifest.files.length} document(s) ·{' '}
                   {view?.case?.releaseStatus[release.approval.manifest.releaseId]}
                   <button
@@ -321,56 +354,95 @@ export function Studio() {
                   >
                     Open released package
                   </button>
-                </p>
+                  <details>
+                    <summary>Approved family decisions</summary>
+                    {release.approval.families ? (
+                      release.approval.families.map((family) => (
+                        <ul key={family.id}>
+                          {family.members.map((id) => (
+                            <li key={id}>
+                              {view?.case?.names[id]} · {family.dispositions[id]?.kind}
+                              {family.dispositions[id]?.kind === 'exclude'
+                                ? `: ${family.dispositions[id].reason}`
+                                : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      ))
+                    ) : (
+                      <p>This earlier release has no frozen family summary.</p>
+                    )}
+                  </details>
+                </div>
               ))}
             </section>
           </div>
           <div className="studio-workspace">
             <aside className="studio-documents" aria-label="Case documents">
-              {state.documents.map((item) => (
-                <div key={item.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={releaseSelection.includes(item.id)}
-                      onChange={(event) =>
-                        setReleaseSelection(
-                          event.target.checked
-                            ? [...releaseSelection, item.id]
-                            : releaseSelection.filter((id) => id !== item.id),
-                        )
-                      }
-                    />
-                    Include in release selection
-                  </label>
-                  <button
-                    type="button"
-                    aria-pressed={selected === item.id}
-                    onClick={() => setSelected(item.id)}
-                  >
-                    {view?.case?.names[item.id]}
-                    <small>
-                      {item.failure
-                        ? 'Blocked'
-                        : item.revision
-                          ? `${item.plan?.reviewedPages.length ?? 0}/${item.revision.pages.length} pages reviewed`
-                          : 'Unprepared'}
-                    </small>
-                  </button>
-                  {!item.revision && (
+              <button type="button" aria-pressed={stage === 'all'} onClick={() => setStage('all')}>
+                Show all documents
+              </button>
+              {state.documents
+                .filter(
+                  (item) =>
+                    stage === 'all' || (stage === 'exported' ? !item.revision : !!item.revision),
+                )
+                .map((item) => (
+                  <div key={item.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={releaseSelection.includes(item.id)}
+                        onChange={(event) =>
+                          setReleaseSelection(
+                            event.target.checked
+                              ? [...releaseSelection, item.id]
+                              : releaseSelection.filter((id) => id !== item.id),
+                          )
+                        }
+                      />
+                      Include in release selection
+                    </label>
                     <button
                       type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setSelected(item.id);
-                        void action(() => window.studio.prepare({ id: item.id, version }));
-                      }}
+                      aria-pressed={selected === item.id}
+                      onClick={() => setSelected(item.id)}
                     >
-                      Prepare fixed pages
+                      {view?.case?.names[item.id]}
+                      <small>
+                        {item.failure
+                          ? 'Blocked'
+                          : item.revision
+                            ? `${item.plan?.reviewedPages.length ?? 0}/${item.revision.pages.length} pages reviewed`
+                            : 'Unprepared'}
+                      </small>
                     </button>
-                  )}
-                </div>
-              ))}
+                    {!!view?.case?.blockers[item.id]?.length && (
+                      <details>
+                        <summary>Review blockers</summary>
+                        <ul>
+                          {[
+                            ...new Set(view.case.blockers[item.id]?.map((blocker) => blocker.code)),
+                          ].map((code) => (
+                            <li key={code}>{code.replaceAll('_', ' ').toLowerCase()}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                    {!item.revision && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setSelected(item.id);
+                          void action(() => window.studio.prepare({ id: item.id, version }));
+                        }}
+                      >
+                        Prepare fixed pages
+                      </button>
+                    )}
+                  </div>
+                ))}
             </aside>
             <section className="studio-review" aria-label="PDF review">
               {document?.revision && currentPage ? (
@@ -627,7 +699,7 @@ export function Studio() {
                     </label>
                     <button
                       type="button"
-                      disabled={busy || !phrase}
+                      disabled={busy || !phrase.trim()}
                       onClick={() => {
                         setError('');
                         void window.studio
@@ -787,6 +859,12 @@ export function Studio() {
                   {!family.inventoryComplete && (
                     <p role="alert">Inventory incomplete. This family cannot be released.</p>
                   )}
+                  {family.unavailable?.map((item) => (
+                    <p key={item.id} role="alert">
+                      {item.originalName} · {item.code}. No bytes were captured; this item remains
+                      unresolved.
+                    </p>
+                  ))}
                   {family.members.map((id) => (
                     <div key={id}>
                       <span>

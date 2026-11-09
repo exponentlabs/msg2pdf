@@ -77,6 +77,7 @@ export interface Family {
   members: string[];
   inventoryComplete: boolean;
   dispositions: Record<string, Disposition>;
+  unavailable?: { id: string; originalName: string; code: 'EXTRACTION_FAILED' }[] | undefined;
 }
 export interface StudioState {
   schemaVersion: 1;
@@ -102,6 +103,10 @@ export const releaseManifestSchema = z
             documentId: z.string().uuid(),
             hash: sha256Schema,
             pages: z.number().int().min(1).max(8),
+            checks: z
+              .array(z.object({ name: z.enum(mandatoryChecks), passed: z.literal(true) }).strict())
+              .length(mandatoryChecks.length)
+              .optional(),
           })
           .strict(),
       )
@@ -118,6 +123,10 @@ export const releaseApprovalSchema = z
     contextHash: sha256Schema,
     actor: z.string().min(1).max(100),
     at: z.string().datetime(),
+    families: z
+      .array(z.lazy(() => familySchema))
+      .max(1000)
+      .optional(),
   })
   .strict();
 export type ReleaseApproval = z.infer<typeof releaseApprovalSchema>;
@@ -187,6 +196,30 @@ const dispositionSchema: z.ZodType<Disposition> = z.discriminatedUnion('kind', [
     })
     .strict(),
 ]);
+export const familySchema: z.ZodType<Family> = z
+  .object({
+    id: z.string().uuid(),
+    members: z.array(z.string().uuid()).min(1).max(1000),
+    inventoryComplete: z.boolean(),
+    dispositions: z.record(z.string(), dispositionSchema),
+    unavailable: z
+      .array(
+        z
+          .object({
+            id: z.string().uuid(),
+            originalName: z.string().max(32768),
+            code: z.literal('EXTRACTION_FAILED'),
+          })
+          .strict(),
+      )
+      .max(64)
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (family) => !family.unavailable?.length || !family.inventoryComplete,
+    'Unreadable items require an incomplete inventory',
+  );
 export const studioStateSchema: z.ZodType<StudioState> = z
   .object({
     schemaVersion: z.literal(1),
@@ -197,18 +230,7 @@ export const studioStateSchema: z.ZodType<StudioState> = z
     documents: z.array(documentSchema).max(1000),
     releaseApproval: releaseApprovalSchema.optional(),
     releases: z.array(releaseRecordSchema).max(1000).optional(),
-    families: z
-      .array(
-        z
-          .object({
-            id: z.string().uuid(),
-            members: z.array(z.string().uuid()).min(1).max(1000),
-            inventoryComplete: z.boolean(),
-            dispositions: z.record(z.string(), dispositionSchema),
-          })
-          .strict(),
-      )
-      .max(1000),
+    families: z.array(familySchema).max(1000),
   })
   .strict()
   .superRefine((state, context) => {
@@ -236,6 +258,7 @@ export type BlockerCode =
   | 'VERIFICATION_FAILED'
   | 'CANDIDATE_UNREVIEWED'
   | 'CASE_INTEGRITY_ERROR'
+  | 'CASE_POLICY_STALE'
   | 'RELEASE_UNAPPROVED'
   | 'CASE_BUSY'
   | 'CASE_LOCK_UNAVAILABLE';

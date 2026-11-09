@@ -3,6 +3,7 @@ import {
   type Blocker,
   type BlockerCode,
   documentSchema,
+  type Family,
   type Gate,
   mandatoryChecks,
   type Plan,
@@ -32,6 +33,18 @@ function canonical(value: unknown): string {
 }
 export function evidenceHash(value: unknown): string {
   return createHash('sha256').update(canonical(value)).digest('hex');
+}
+// The inventory/approval contract changed during the PR review. Earlier prepared
+// inventories cannot be made current merely by regenerating their candidate PDF.
+export const STUDIO_POLICY_HASH = evidenceHash({
+  id: 'fedora-studio-policy-v2',
+  completePageReview: true,
+  imageOnly: true,
+  inventory: 'outer-signatures-and-unreadable-identities',
+  release: 'frozen-families-and-check-outcomes',
+});
+export function requireCurrentPolicy(state: StudioState): void {
+  if (state.policyHash !== STUDIO_POLICY_HASH) throw new Error('CASE_POLICY_STALE');
 }
 export function reviewContext(state: StudioState, document: StudioDocument): string {
   return evidenceHash({
@@ -178,6 +191,7 @@ export function releaseGate(state: StudioState): Gate {
   if (!gate.ok) return gate;
   if (
     approval.stateVersion !== state.version ||
+    evidenceHash(approval.families ?? []) !== evidenceHash(releaseFamilies(state, ids)) ||
     approval.contextHash !== releaseFingerprint(state, ids) ||
     approval.manifestHash !== evidenceHash(approval.manifest) ||
     state.releases?.some(
@@ -188,12 +202,19 @@ export function releaseGate(state: StudioState): Gate {
       return (
         file.name !== `document-${String(index + 1).padStart(3, '0')}.pdf` ||
         file.hash !== document?.candidate?.hash ||
+        !file.checks ||
+        mandatoryChecks.some((name, index) => file.checks?.[index]?.name !== name) ||
         file.pages !== document.revision?.pages.length
       );
     })
   )
     return { ok: false, blockers: [{ code: 'RELEASE_UNAPPROVED' }] };
   return { ok: true };
+}
+export function releaseFamilies(state: StudioState, selection: string[]): Family[] {
+  return structuredClone(
+    state.families.filter((family) => family.members.some((id) => selection.includes(id))),
+  );
 }
 export function makeReleaseManifest(
   state: StudioState,
@@ -214,6 +235,7 @@ export function makeReleaseManifest(
         documentId: id,
         hash: document.candidate.hash,
         pages: document.revision.pages.length,
+        checks: mandatoryChecks.map((name) => ({ name, passed: true as const })),
       };
     }),
   };

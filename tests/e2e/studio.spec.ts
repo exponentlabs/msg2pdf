@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
-import { PDFDocument, PDFName, PDFString, rgb, StandardFonts } from 'pdf-lib';
+import { degrees, PDFDocument, PDFName, PDFString, rgb, StandardFonts } from 'pdf-lib';
 import type { StudioApi } from '../../src/shared/studio';
 import { msgFixture } from '../fixtures';
 
@@ -51,6 +51,10 @@ test('Fedora studio captures fixed pages, marks, reviews and reopens durable pla
     await expect(window.getByRole('img', { name: 'Fixed review page 1' })).toBeVisible({
       timeout: 45_000,
     });
+    await window.getByRole('button', { name: 'Show captured originals', exact: true }).click();
+    await expect(window.getByRole('button', { name: /synthetic.pdf/ })).toHaveCount(0);
+    await window.getByRole('button', { name: 'Show review revisions', exact: true }).click();
+    await expect(window.getByRole('button', { name: /synthetic.pdf/ })).toBeVisible();
     const surface = window.getByRole('application', { name: 'Drag to mark redaction regions' });
     await surface.scrollIntoViewIfNeeded();
     const bounds = await surface.boundingBox();
@@ -229,6 +233,9 @@ test('mixed Fedora case inventories nested email attachments and prepares sandbo
   embedded.context.register(
     embedded.context.flateStream(Buffer.from('ORPHAN_PRIVATE_BYTES'), { Type: 'EmbeddedFile' }),
   );
+  embedded.context.register(
+    embedded.context.obj({ Type: 'Filespec', F: PDFString.of('unreadable-attachment.txt') }),
+  );
   await writeFile(embeddedPdf, await embedded.save());
   const msg = join(root, 'message.msg');
   await writeFile(msg, msgFixture({ html: '<p>Public MSG body.</p>' }));
@@ -325,6 +332,9 @@ test('mixed Fedora case inventories nested email attachments and prepares sandbo
             label.startsWith('embedded-data-'),
           ),
         ).toBe(true);
+        const family = result.case?.state.families.find((item) => item.members[0] === id);
+        expect(family?.inventoryComplete).toBe(false);
+        expect(family?.unavailable?.[0]?.originalName).toBe('unreadable-attachment.txt');
       }
     }
     // Release a deliberate mixed-case subset, requiring explicit family decisions.
@@ -409,6 +419,87 @@ test('mixed Fedora case inventories nested email attachments and prepares sandbo
     expect(
       released.case?.state.releases?.[0]?.approval.manifest.files.map((file) => file.documentId),
     ).toEqual([parentId]);
+    expect(
+      released.case?.state.releases?.[0]?.approval.families?.[0]?.dispositions[nestedId],
+    ).toEqual({ kind: 'exclude', reason: 'Deliberately omit nested message from this subset' });
+  } finally {
+    await application.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rotated cropped mixed-size pages preserve canonical drag regions across zooms', async () => {
+  test.skip(process.platform !== 'linux' || process.arch !== 'arm64', 'Fedora ARM64 profile');
+  test.setTimeout(120000);
+  const root = await mkdtemp(
+    join(process.env.MSG2PDF_STUDIO_TEST_ROOT ?? tmpdir(), 'msg2pdf-geometry-'),
+  );
+  const working = join(root, 'case');
+  await mkdir(working);
+  const pdf = await PDFDocument.create();
+  const first = pdf.addPage([400, 400]);
+  first.setCropBox(20, 30, 300, 250);
+  first.setRotation(degrees(90));
+  first.drawRectangle({ x: 80, y: 80, width: 100, height: 100, color: rgb(0, 0.8, 0) });
+  pdf.addPage([300, 450]).drawText('Unmarked neighboring page');
+  const input = join(root, 'geometry.pdf');
+  await writeFile(input, await pdf.save());
+  const application = await electron.launch({
+    args: [resolve('.'), `--user-data-dir=${join(root, 'profile')}`],
+  });
+  try {
+    const window = await application.firstWindow();
+    await window.getByRole('button', { name: 'Redaction studio', exact: true }).click();
+    await application.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
+    }, working);
+    await expect(
+      window.getByRole('button', { name: 'New working folder', exact: true }),
+    ).toBeEnabled();
+    await window.getByRole('button', { name: 'New working folder', exact: true }).click();
+    await expect(window.getByRole('heading', { name: 'case', exact: true })).toBeVisible();
+    await application.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
+    }, input);
+    await window.getByRole('button', { name: 'Add documents', exact: true }).click();
+    await window.getByRole('button', { name: /geometry.pdf/ }).click();
+    await window.getByRole('button', { name: 'Prepare fixed pages', exact: true }).click();
+    await expect(window.getByRole('img', { name: 'Fixed review page 1' })).toBeVisible();
+    const surface = window.getByRole('application', { name: 'Drag to mark redaction regions' });
+    for (const zoom of ['0.5', '1']) {
+      await window.getByRole('combobox', { name: 'Zoom' }).selectOption(zoom);
+      await surface.scrollIntoViewIfNeeded();
+      await expect
+        .poll(async () => Math.round((await surface.boundingBox())?.width ?? 0))
+        .toBe(250 * Number(zoom));
+      const bounds = await surface.boundingBox();
+      if (!bounds) throw new Error('No rotated page');
+      await window.mouse.move(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
+      await window.mouse.down();
+      await window.mouse.move(
+        bounds.x + bounds.width * 0.6,
+        bounds.y + bounds.height * (160 / 300),
+      );
+      await window.mouse.up();
+      await expect(window.getByText('Saved · 1 documents', { exact: false })).toBeVisible();
+    }
+    const state = await window.evaluate(
+      async () => (await (Reflect.get(globalThis, 'studio') as StudioApi).status()).case?.state,
+    );
+    const document = state?.documents[0];
+    expect(document?.plan?.marks).toHaveLength(2);
+    for (const mark of document?.plan?.marks ?? [])
+      mark.rect.forEach((value, index) => {
+        expect(Math.abs(value - ([80, 80, 180, 180][index] ?? 0))).toBeLessThan(1.1);
+      });
+    await window.getByRole('button', { name: 'Mark page reviewed', exact: true }).click();
+    await window.getByRole('button', { name: 'Next page', exact: true }).click();
+    await expect(window.getByRole('img', { name: 'Fixed review page 2' })).toBeVisible();
+    await window.getByRole('button', { name: 'Mark page reviewed', exact: true }).click();
+    await window.getByRole('button', { name: 'Create image-only candidate', exact: true }).click();
+    await expect(
+      window.getByRole('button', { name: 'Review sanitized page 2', exact: true }),
+    ).toBeVisible({ timeout: 45000 });
   } finally {
     await application.close();
     await rm(root, { recursive: true, force: true });

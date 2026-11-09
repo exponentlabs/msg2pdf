@@ -6,6 +6,7 @@ import { detectOffice } from '../core/office';
 import { createPlan } from '../core/planner';
 import { assertLegacyDestination } from '../core/studio/paths';
 import { errorMessage } from '../shared/errors';
+import { studioFailure } from '../shared/studio-errors';
 import { parseArguments } from '../terminal/arguments';
 import { createServices } from './services';
 import { AppStore } from './store';
@@ -69,7 +70,12 @@ export async function runCliWorker(): Promise<void> {
     code = summary.cancelled ? 130 : summary.failed ? 1 : 0;
   } catch (error) {
     if (controller.signal.aborted) code = 130;
-    emit({ type: 'error', message: errorMessage(error) });
+    emit({
+      type: 'error',
+      ...(process.argv[offset + 1] === 'studio'
+        ? studioFailure(error)
+        : { message: errorMessage(error) }),
+    });
   } finally {
     process.removeListener('SIGINT', abort);
     process.removeListener('SIGTERM', abort);

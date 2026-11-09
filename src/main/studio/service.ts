@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
 import { z } from 'zod';
@@ -13,17 +12,22 @@ import {
   mandatoryChecks,
   markSchema,
   type Plan,
+  releaseFamilies,
   releaseFingerprint,
   releaseGate,
+  requireCurrentPolicy,
   reviewContext,
+  STUDIO_POLICY_HASH,
   type StudioDocument,
   type StudioState,
   validatePlan,
 } from '../../core/studio/domain';
 import { pixelRegion } from '../../core/studio/geometry';
 import { decodePpm, encodeRgbPng } from '../../core/studio/png';
+import { searchRegions } from '../../core/studio/search';
 import { originKey } from '../../shared/security';
 import type { Snapshot, StudioView } from '../../shared/studio';
+import { studioFailure } from '../../shared/studio-errors';
 import { renderPdf } from '../services';
 import { StudioRuntime, snapshotSchema } from './runtime';
 import { type Artifact, bytesHash, CaseStore, nativeCaseLock } from './store';
@@ -87,12 +91,17 @@ export class StudioService {
     const state = this.store?.state();
     return {
       available: status.available,
+      caseAccess:
+        process.platform === 'linux' &&
+        process.arch === 'arm64' &&
+        process.versions.electron === '45.2.3',
       reason: status.reason,
       profile: 'fedora-raster-v1',
       ...(state && this.store
         ? {
             case: {
               state,
+              policyCurrent: state.policyHash === STUDIO_POLICY_HASH,
               releaseStatus: Object.fromEntries(
                 (state.releases ?? []).map((release) => [
                   release.approval.manifest.releaseId,
@@ -116,6 +125,8 @@ export class StudioService {
                 state.documents.map((document) => {
                   const gate = documentGate(state, document);
                   const blockers = gate.ok ? [] : gate.blockers;
+                  if (state.policyHash !== STUDIO_POLICY_HASH)
+                    blockers.push({ code: 'CASE_POLICY_STALE', documentId: document.id });
                   if (
                     document.candidate &&
                     (!status.available ||
@@ -158,7 +169,7 @@ export class StudioService {
     const store = await CaseStore.create(
       path,
       this.lock(),
-      evidenceHash({ id: 'raster-policy-v1', completePageReview: true, imageOnly: true }),
+      STUDIO_POLICY_HASH,
       status.contractHash,
     );
     this.store?.close();
@@ -166,7 +177,6 @@ export class StudioService {
     return this.view();
   }
   async open(): Promise<StudioView> {
-    await this.ready();
     const selected = await dialog.showOpenDialog(this.window, {
       title: 'Open a managed working folder',
       properties: ['openDirectory'],
@@ -195,6 +205,7 @@ export class StudioService {
   }
   async import(signal: AbortSignal): Promise<StudioView> {
     const store = this.current();
+    requireCurrentPolicy(store.state());
     const selected = await dialog.showOpenDialog(this.window, {
       title: 'Capture documents for review',
       properties: ['openFile', 'multiSelections'],
@@ -244,6 +255,7 @@ export class StudioService {
     const store = this.current();
     const state = store.state();
     if (state.version !== request.version) throw new Error('STATE_STALE');
+    requireCurrentPolicy(state);
     if (state.contractHash !== status.contractHash)
       throw new Error('The case profile needs migration before processing.');
     const document = this.document(state, request.id);
@@ -308,10 +320,16 @@ export class StudioService {
               string,
               import('../../shared/studio-domain').Disposition
             >,
+            unavailable: [] as { id: string; originalName: string; code: 'EXTRACTION_FAILED' }[],
           };
           for (const attachment of inventory.attachments) {
             if (!attachment.file) {
               family.inventoryComplete = false;
+              family.unavailable.push({
+                id: randomUUID(),
+                originalName: attachment.name || '(unnamed attachment)',
+                code: 'EXTRACTION_FAILED',
+              });
               continue;
             }
             const bytes = await readFile(join(job.path, attachment.file));
@@ -349,7 +367,9 @@ export class StudioService {
       } else if (kind === 'office') {
         const office = await detectOffice();
         if (!office.available) throw new Error('OFFICE_UNAVAILABLE');
-        const workspace = await mkdtemp(join(tmpdir(), 'msg2pdf-office-'));
+        const officeJob = await store.scratch(['office']);
+        const workspace = join(officeJob.path, 'office');
+        await mkdir(workspace, { mode: 0o700 });
         try {
           revisionBytes = await prepareOfficePdf(
             await store.path(source.artifact.path),
@@ -357,9 +377,10 @@ export class StudioService {
             office,
             '',
             signal,
+            true,
           );
         } finally {
-          await rm(workspace, { recursive: true, force: true });
+          await store.clearScratch(officeJob.id);
         }
         converter = `LibreOffice ${office.version}; ${status.engine}`;
       } else throw new Error('UNSUPPORTED_SOURCE');
@@ -461,6 +482,7 @@ export class StudioService {
   private async persistPlan(id: string, version: number, plan: Plan): Promise<StudioView> {
     const store = this.current();
     const state = store.state();
+    requireCurrentPolicy(state);
     if (state.version !== version) throw new Error('STATE_STALE');
     const document = this.document(state, id);
     if (!document.revision) throw new Error('PREPARATION_FAILED');
@@ -521,23 +543,7 @@ export class StudioService {
       .strict()
       .parse(value);
     const snapshot = await this.loadSnapshot(request.id, request.revisionHash);
-    const hits: { page: number; rect: [number, number, number, number]; text: string }[] = [];
-    snapshot.pages.forEach((page, index) => {
-      const joined = page.text.map((item) => item.text).join(' ');
-      let from = 0;
-      while (hits.length < 1000) {
-        const at = joined.indexOf(request.phrase, from);
-        if (at < 0) break;
-        let offset = 0;
-        for (const item of page.text) {
-          if (offset < at + request.phrase.length && offset + item.text.length > at)
-            hits.push({ page: index, rect: item.rect, text: item.text.slice(0, 200) });
-          offset += item.text.length + 1;
-        }
-        from = at + request.phrase.length;
-      }
-    });
-    return hits.slice(0, 1000);
+    return searchRegions(snapshot.pages, request.phrase);
   }
   cancel(): void {
     this.controller?.abort();
@@ -547,6 +553,7 @@ export class StudioService {
     const status = await this.ready();
     const store = this.current();
     const state = store.state();
+    requireCurrentPolicy(state);
     if (request.version !== state.version) throw new Error('STATE_STALE');
     const document = this.document(state, request.id);
     const { revision, plan } = document;
@@ -712,6 +719,7 @@ export class StudioService {
     return this.view();
   }
   private async candidateEvidence(state: StudioState, document: StudioDocument) {
+    requireCurrentPolicy(state);
     const status = await this.ready();
     const candidate = document.candidate;
     if (
@@ -853,6 +861,7 @@ export class StudioService {
       .parse(value);
     const store = this.current();
     const state = store.state();
+    requireCurrentPolicy(state);
     if (state.version !== request.version) throw new Error('STATE_STALE');
     const manifest = makeReleaseManifest(state, request.selection, randomUUID());
     for (const id of request.selection)
@@ -886,6 +895,7 @@ export class StudioService {
       contextHash: releaseFingerprint({ ...state, version: state.version + 1 }, request.selection),
       actor: 'Local user',
       at: new Date().toISOString(),
+      families: releaseFamilies(state, request.selection),
     };
     await store.transition(request.version, state);
     return this.view();
@@ -903,6 +913,7 @@ export class StudioService {
       .parse(value);
     const store = this.current();
     const state = store.state();
+    requireCurrentPolicy(state);
     if (state.version !== request.version) throw new Error('STATE_STALE');
     const family = state.families.find((item) => item.id === request.familyId);
     if (!family?.members.includes(request.documentId)) throw new Error('FAMILY_UNRESOLVED');
@@ -919,6 +930,7 @@ export class StudioService {
     const request = z.object({ version: z.number().int().nonnegative() }).strict().parse(value);
     const store = this.current();
     const state = store.state();
+    requireCurrentPolicy(state);
     if (state.version !== request.version) throw new Error('STATE_STALE');
     const gate = releaseGate(state);
     if (!gate.ok) throw new Error(gate.blockers[0]?.code ?? 'RELEASE_UNAPPROVED');
@@ -974,22 +986,26 @@ export function registerStudioApi(
   ) => {
     const channel = `studio:${name}`;
     names.push(channel);
-    ipcMain.handle(channel, (event, value: unknown) => {
-      const frame = event.senderFrame;
-      if (
-        event.sender.id !== window.webContents.id ||
-        !frame ||
-        frame.parent !== null ||
-        originKey(frame.url) !== trustedOrigin
-      )
-        throw new Error('Untrusted studio caller');
-      if (name === 'cancel') {
-        service.cancel();
-        return;
+    ipcMain.handle(channel, async (event, value: unknown) => {
+      try {
+        const frame = event.senderFrame;
+        if (
+          event.sender.id !== window.webContents.id ||
+          !frame ||
+          frame.parent !== null ||
+          originKey(frame.url) !== trustedOrigin
+        )
+          throw new Error('Untrusted studio caller');
+        if (name === 'cancel') {
+          service.cancel();
+          return;
+        }
+        return await (mutating
+          ? service.run((signal) => callback(value, signal))
+          : callback(value, new AbortController().signal));
+      } catch (error) {
+        throw new Error(studioFailure(error).message);
       }
-      return mutating
-        ? service.run((signal) => callback(value, signal))
-        : callback(value, new AbortController().signal);
     });
   };
   handle('status', () => service.view(), false);

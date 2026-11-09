@@ -18,11 +18,13 @@ export interface Snapshot {
 }
 export interface StudioView {
   available: boolean;
+  caseAccess: boolean;
   reason?: string | undefined;
   profile: string;
   case?:
     | {
         state: StudioState;
+        policyCurrent: boolean;
         releaseStatus: Record<string, 'current' | 'superseded'>;
         label: string;
         names: Record<string, string>;

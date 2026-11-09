@@ -56,10 +56,37 @@ static napi_value promote(napi_env env, napi_callback_info info) {
   return result;
 }
 
+/* A directory guard survives accidental deletion of lock metadata in a live case. */
+static napi_value guard(napi_env env, napi_callback_info info) {
+  napi_value args[1], result;
+  size_t count = 1, length;
+  char path[4096];
+  napi_get_cb_info(env, info, &count, args, NULL, NULL);
+  if (count != 1 || napi_get_value_string_utf8(env, args[0], path, sizeof(path), &length) != napi_ok || length >= sizeof(path) - 1) {
+    napi_throw_error(env, "CASE_LOCK_UNAVAILABLE", "Invalid case directory");
+    return NULL;
+  }
+  int fd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+  if (fd < 0) {
+    napi_throw_error(env, "CASE_LOCK_UNAVAILABLE", "Cannot open case directory");
+    return NULL;
+  }
+  if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+    int busy = errno == EWOULDBLOCK || errno == EAGAIN;
+    close(fd);
+    napi_throw_error(env, busy ? "CASE_BUSY" : "CASE_LOCK_UNAVAILABLE", "Cannot acquire case guard");
+    return NULL;
+  }
+  napi_create_int32(env, fd, &result);
+  return result;
+}
+
 NAPI_MODULE_INIT() {
   napi_value function;
   napi_create_function(env, "acquire", NAPI_AUTO_LENGTH, acquire, NULL, &function);
   napi_set_named_property(env, exports, "acquire", function);
+  napi_create_function(env, "guard", NAPI_AUTO_LENGTH, guard, NULL, &function);
+  napi_set_named_property(env, exports, "guard", function);
   napi_create_function(env, "promoteDirectory", NAPI_AUTO_LENGTH, promote, NULL, &function);
   napi_set_named_property(env, exports, "promoteDirectory", function);
   return exports;

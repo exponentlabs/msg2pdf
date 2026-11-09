@@ -69,3 +69,7 @@ Production dependency audit reports no known vulnerabilities. Run `pnpm package:
 These results qualify local development on this target. They do not establish other studio platforms, signed/notarized distribution, native-file redaction, loss-free VM reset/power failure or authenticated multi-user approval. All iteration was local; no GitHub Actions runs were requested for this workstream.
 
 The [final native qualification JSON](evidence/studio-fedora-arm64.json) binds these results to implementation commit `02579ffc35920afc2efae1ecf1ddfa243a1e0f94` and its actual packaged hashes. The subsequent source change tightens the viewport test to await the exact 980-pixel content width; that targeted Electron test also passes.
+
+## PR #10 review follow-up — 9 November 2026
+
+The [ADR/B1–B8 audit](studio-review.md) records findings and fixes. The amended local suite passes **91 unit tests** (two macOS-only skips) and **9 Electron tests**, including real isolated Office, tracked Office recovery, deleted lock metadata, frozen exclusions, unreadable/signature inventories, bounded search/intake and native multi-zoom geometry. The [repeated B1 evidence](evidence/b1-review-fedora-arm64.json) passes 37 checks. See the [review native qualification](evidence/studio-review-fedora-arm64.json) for the amended code/package hashes and production packaged results. All validation remains local.

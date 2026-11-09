@@ -5,9 +5,12 @@ import {
   evidenceHash,
   makeReleaseManifest,
   mandatoryChecks,
+  releaseFamilies,
   releaseFingerprint,
   releaseGate,
+  requireCurrentPolicy,
   reviewContext,
+  STUDIO_POLICY_HASH,
   type StudioDocument,
   type StudioState,
   selectionGate,
@@ -15,6 +18,8 @@ import {
   validatePlan,
 } from '../../src/core/studio/domain';
 import { pdfInventory } from '../../src/core/studio/pdf-inventory';
+import { searchRegions } from '../../src/core/studio/search';
+import { studioFailure } from '../../src/shared/studio-errors';
 
 function ready() {
   const sourceHash = evidenceHash('captured source');
@@ -72,6 +77,78 @@ function ready() {
 }
 
 describe('studio publication gates', () => {
+  it('requires fresh inventories for earlier development policies without migrating approvals', () => {
+    const { state } = ready();
+    expect(() => requireCurrentPolicy(state)).toThrow('CASE_POLICY_STALE');
+    state.policyHash = STUDIO_POLICY_HASH;
+    expect(() => requireCurrentPolicy(state)).not.toThrow();
+  });
+  it('preserves frozen exclusion reasons when later family decisions change', () => {
+    const { state, document, seal } = ready();
+    const child = { id: randomUUID(), sourceHash: evidenceHash('child') };
+    state.documents.push(child);
+    state.families.push({
+      id: randomUUID(),
+      members: [document.id, child.id],
+      inventoryComplete: true,
+      dispositions: {
+        [document.id]: { kind: 'include' },
+        [child.id]: { kind: 'exclude', reason: 'Original approved reason' },
+      },
+    });
+    seal();
+    const manifest = makeReleaseManifest(state, [document.id], randomUUID());
+    state.releaseApproval = {
+      stateVersion: state.version,
+      manifest,
+      manifestHash: evidenceHash(manifest),
+      contextHash: releaseFingerprint(state, [document.id]),
+      actor: 'Local user',
+      at: new Date().toISOString(),
+      families: releaseFamilies(state, [document.id]),
+    };
+    expect(releaseGate(state).ok).toBe(true);
+    expect(manifest.files[0]?.checks).toEqual(
+      mandatoryChecks.map((name) => ({ name, passed: true })),
+    );
+    expect(JSON.stringify(manifest)).not.toContain('Original approved reason');
+    const family = state.families[0];
+    if (!family) throw new Error('No family');
+    family.dispositions[child.id] = { kind: 'exclude', reason: 'Later changed reason' };
+    expect(state.releaseApproval.families?.[0]?.dispositions[child.id]).toEqual({
+      kind: 'exclude',
+      reason: 'Original approved reason',
+    });
+    expect(releaseGate(state).ok).toBe(false);
+  });
+  it('bounds fragmented phrase search and rejects separator-only queries', () => {
+    const rect: [number, number, number, number] = [0, 0, 10, 10];
+    const pages = [{ text: Array.from({ length: 50000 }, () => ({ text: 'word', rect })) }];
+    expect(() => searchRegions(pages, ' ')).toThrow('visible phrase');
+    expect(searchRegions(pages, 'word')).toHaveLength(1000);
+    expect(
+      searchRegions(
+        [
+          {
+            text: [
+              { text: 'sensitive', rect },
+              { text: 'phrase', rect },
+            ],
+          },
+        ],
+        'sensitive phrase',
+      ),
+    ).toHaveLength(2);
+    expect(searchRegions([{ text: [{ text: 'word word word', rect }] }], 'word')).toHaveLength(1);
+  });
+  it('returns the same native lock error code for GUI serialization and CLI JSON', () => {
+    const failure = studioFailure(
+      Object.assign(new Error('Cannot acquire lock'), { code: 'CASE_BUSY' }),
+    );
+    expect(failure.code).toBe('CASE_BUSY');
+    expect(failure.message).toContain('CASE_BUSY:');
+    expect(studioFailure(new Error('STATE_STALE')).code).toBe('STATE_STALE');
+  });
   it('inventories associated and orphan PDF streams without treating external file references as exclusions', () => {
     const graph = {
       qpdf: [

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { closeSync, constants } from 'node:fs';
+import { closeSync, constants, fstatSync } from 'node:fs';
 import {
   chmod,
   copyFile,
@@ -24,9 +24,11 @@ import {
   type StudioState,
   studioStateSchema,
 } from '../../core/studio/domain';
+import { assertLegacyDestination } from '../../core/studio/paths';
 
 export interface CaseLock {
   acquire(path: string): number;
+  guard(root: string): number;
   promoteDirectory(source: string, target: string): void;
 }
 export function nativeCaseLock(binary: string): CaseLock {
@@ -36,6 +38,8 @@ export function nativeCaseLock(binary: string): CaseLock {
     typeof value !== 'object' ||
     !('acquire' in value) ||
     typeof value.acquire !== 'function' ||
+    !('guard' in value) ||
+    typeof value.guard !== 'function' ||
     !('promoteDirectory' in value) ||
     typeof value.promoteDirectory !== 'function'
   )
@@ -77,6 +81,15 @@ const operationSchema = z
 type Operation = z.infer<typeof operationSchema>;
 const markerSchema = z.object({ schemaVersion: z.literal(1), id: z.string().uuid() }).strict();
 const roots = ['Exported', 'For Redaction', 'Redacted for sharing', '.studio'] as const;
+function acquireCaseLock(binding: CaseLock, root: string): number[] {
+  const directory = binding.guard(root);
+  try {
+    return [directory, binding.acquire(join(root, '.studio/locks/case.lock'))];
+  } catch (error) {
+    closeSync(directory);
+    throw error;
+  }
+}
 export function bytesHash(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
@@ -97,6 +110,20 @@ async function privateDirectory(path: string): Promise<void> {
   if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('CASE_INTEGRITY_ERROR');
   await chmod(path, 0o700);
 }
+async function emptyPrivateDirectory(path: string): Promise<void> {
+  await assertLegacyDestination(path);
+  await mkdir(path, { recursive: true, mode: 0o700 });
+  const info = await lstat(path);
+  if (
+    !info.isDirectory() ||
+    info.isSymbolicLink() ||
+    (process.getuid && info.uid !== process.getuid())
+  )
+    throw new Error('CASE_INTEGRITY_ERROR');
+  if ((await readdir(path)).length) throw new Error('Choose an empty working folder');
+  await localFilesystem(path);
+  await chmod(path, 0o700);
+}
 async function localFilesystem(path: string): Promise<void> {
   const info = await statfs(path);
   // Native Linux filesystems only. tmpfs is useful for ephemeral synthetic cases,
@@ -113,7 +140,7 @@ export class CaseStore {
   private constructor(
     readonly root: string,
     private readonly db: DatabaseSync,
-    private readonly lock: number,
+    private readonly lock: number[],
     private readonly binding: CaseLock,
   ) {}
   static async create(
@@ -123,14 +150,12 @@ export class CaseStore {
     contractHash: string,
   ): Promise<CaseStore> {
     const absolute = resolve(root);
-    await privateDirectory(absolute);
-    await localFilesystem(absolute);
-    if ((await readdir(absolute)).length) throw new Error('Choose an empty working folder');
+    await emptyPrivateDirectory(absolute);
     await mkdir(join(absolute, '.studio'), { mode: 0o700 });
     for (const directory of roots) await privateDirectory(join(absolute, directory));
     for (const directory of ['locks', 'staging', 'candidates', 'snapshots'])
       await privateDirectory(join(absolute, '.studio', directory));
-    const descriptor = lock.acquire(join(absolute, '.studio/locks/case.lock'));
+    const descriptor = acquireCaseLock(lock, absolute);
     let db: DatabaseSync | undefined;
     try {
       db = new DatabaseSync(join(absolute, '.studio/case.sqlite'));
@@ -161,7 +186,7 @@ export class CaseStore {
       return new CaseStore(await realpath(absolute), db, descriptor, lock);
     } catch (error) {
       db?.close();
-      closeSync(descriptor);
+      descriptor.forEach(closeSync);
       throw error;
     }
   }
@@ -182,7 +207,7 @@ export class CaseStore {
       )
         throw new Error('CASE_INTEGRITY_ERROR');
     }
-    const descriptor = lock.acquire(join(absolute, '.studio/locks/case.lock'));
+    const descriptor = acquireCaseLock(lock, absolute);
     let db: DatabaseSync | undefined;
     try {
       const markerInfo = await lstat(join(absolute, '.studio/case.json'));
@@ -211,7 +236,7 @@ export class CaseStore {
       return store;
     } catch (error) {
       db?.close();
-      closeSync(descriptor);
+      descriptor.forEach(closeSync);
       throw error;
     }
   }
@@ -399,7 +424,10 @@ export class CaseStore {
     const canonical = await realpath(input);
     if (canonical === this.root || canonical.startsWith(`${this.root}${sep}`))
       throw new Error('Recursive case intake is forbidden');
-    const handle = await open(input, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await open(
+      input,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    );
     let bytes: Buffer;
     try {
       const before = await handle.stat();
@@ -597,6 +625,8 @@ export class CaseStore {
         },
       });
       this.checkPublication(operation);
+      if (Buffer.byteLength(JSON.stringify(operation.nextState)) > 32 * 1024 * 1024)
+        throw new Error('Case metadata budget exceeded');
       this.db
         .prepare('INSERT INTO operations VALUES(?,?,?)')
         .run(id, 'intent', JSON.stringify(operation));
@@ -784,6 +814,10 @@ export class CaseStore {
         throw new Error('CASE_INTEGRITY_ERROR');
       for (const name of await readdir(directory)) {
         const info = await lstat(join(directory, name));
+        if (name === 'office' && files.has(name) && info.isDirectory() && !info.isSymbolicLink()) {
+          await this.checkOfficeTree(join(directory, name));
+          continue;
+        }
         if (!files.has(name) || !info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
           throw new Error('CASE_INTEGRITY_ERROR');
       }
@@ -791,8 +825,46 @@ export class CaseStore {
       if (!missing(error)) throw error;
     }
   }
+  /** Office may populate only this declared job-owned tree, never the rest of the case. */
+  private async checkOfficeTree(directory: string): Promise<void> {
+    let entries = 0;
+    let bytes = 0;
+    const visit = async (path: string, depth = 0, temporary = false): Promise<void> => {
+      if (depth > 24 || ++entries > 20000) throw new Error('CASE_INTEGRITY_ERROR');
+      const info = await lstat(path);
+      if (info.isSymbolicLink() || (process.getuid && info.uid !== process.getuid()))
+        throw new Error('CASE_INTEGRITY_ERROR');
+      if (info.isDirectory()) {
+        for (const name of await readdir(path)) {
+          if (
+            !depth &&
+            !['profile', 'pdf', 'cache', 'tmp'].includes(name) &&
+            !/^document\.[a-z0-9]{1,12}$/.test(name)
+          )
+            throw new Error('CASE_INTEGRITY_ERROR');
+          await visit(join(path, name), depth + 1, temporary || (!depth && name === 'tmp'));
+        }
+      } else if (info.isFile() && info.nlink === 1) {
+        bytes += info.size;
+        if (bytes > 384 * 1024 * 1024) throw new Error('CASE_INTEGRITY_ERROR');
+      } else if (!temporary || !info.isSocket()) throw new Error('CASE_INTEGRITY_ERROR');
+    };
+    const root = await lstat(directory);
+    if (!root.isDirectory() || root.mode & 0o077) throw new Error('CASE_INTEGRITY_ERROR');
+    await visit(directory);
+  }
 
   async validate(): Promise<void> {
+    for (const [index, path] of [this.root, join(this.root, '.studio/locks/case.lock')].entries()) {
+      const fd = this.lock[index];
+      if (fd === undefined) throw new Error('CASE_LOCK_UNAVAILABLE');
+      const held = fstatSync(fd);
+      const current = await lstat(path).catch(() => {
+        throw new Error('CASE_INTEGRITY_ERROR');
+      });
+      if (held.ino !== current.ino || held.dev !== current.dev || current.isSymbolicLink())
+        throw new Error('CASE_INTEGRITY_ERROR');
+    }
     const known = new Set([
       '.studio/case.sqlite',
       '.studio/case.sqlite-journal',
@@ -813,7 +885,17 @@ export class CaseStore {
       known.add(artifact.path);
     }
     const jobs = this.jobFiles();
+    const officeRoots = new Set(
+      [...jobs]
+        .filter(([, files]) => files.has('office'))
+        .map(([id]) => `.studio/staging/${id}/office`),
+    );
+    const checkOffice = (path: string) => this.checkOfficeTree(path);
     async function visit(root: string, prefix = ''): Promise<void> {
+      if (officeRoots.has(prefix)) {
+        await checkOffice(root);
+        return;
+      }
       for (const entry of await readdir(root, { withFileTypes: true })) {
         const name = prefix ? `${prefix}/${entry.name}` : entry.name;
         if (entry.isSymbolicLink()) throw new Error('CASE_INTEGRITY_ERROR');
@@ -869,7 +951,7 @@ export class CaseStore {
       let target = resolve(destination);
       if (target === this.root || target.startsWith(`${this.root}${sep}`))
         throw new Error('Backup must be outside the case');
-      await privateDirectory(target);
+      await emptyPrivateDirectory(target);
       target = await realpath(target);
       if (target === this.root || target.startsWith(`${this.root}${sep}`))
         throw new Error('Backup must be outside the case');
@@ -900,7 +982,7 @@ export class CaseStore {
     if (this.closed) return;
     if (this.busy) throw new Error('CASE_BUSY');
     this.db.close();
-    closeSync(this.lock);
+    this.lock.forEach(closeSync);
     this.closed = true;
   }
 }
