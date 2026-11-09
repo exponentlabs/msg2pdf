@@ -65,7 +65,7 @@ app
       packaged: app.isPackaged,
       versions: process.versions,
       async assemble(pages) {
-        const document = await PDFDocument.create();
+        const document = await PDFDocument.create({ updateMetadata: false });
         for (const item of pages) {
           const image = await document.embedPng(Buffer.from(item.png, 'base64'));
           document.addPage([item.width, item.height]).drawImage(image, {
@@ -75,7 +75,8 @@ app
             height: item.height,
           });
         }
-        document.setProducer('msg2pdf B1 private raster experiment');
+        document.setProducer('msg2pdf raster-v1');
+        document.setCreator('msg2pdf');
         return Buffer.from(await document.save({ useObjectStreams: false })).toString('base64');
       },
     };

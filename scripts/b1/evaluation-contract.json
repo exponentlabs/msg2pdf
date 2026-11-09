@@ -1,33 +1,51 @@
 {
-  "id": "b1-raster-compatibility-v1",
-  "status": "evaluation-only",
+  "id": "fedora-raster-v1",
+  "status": "locally-qualified-profile",
   "releaseEnabled": false,
-  "engine": "PDF.js 6.5.438 canvas plus pdf-lib 1.17.1 fresh image-only assembly",
-  "independentChecks": "Poppler 26.01.0 CLI, invoked by packaged Electron Node worker inside bubblewrap",
-  "supplementalChecks": "pdf-lib object inspection is correlated with assembly and does not establish independent object allowlist verification",
-  "limits": { "pages": 8, "pagePoints": 2000, "rasterScale": 2, "checkerTimeoutMs": 15000 },
+  "engine": "PDF.js 6.5.438 reviewed RGB snapshot with outward-rounded masks; pdf-lib 1.17.1 fresh image-only assembly",
+  "independentChecks": "QPDF 12.3.2 JSON object/stream inspection and exact canonical-byte policy; Poppler 26.01.0 render/text/attachment checks, invoked in packaged Electron Node worker inside bubblewrap",
+  "supplementalChecks": "Source rendering differences between PDF.js and Poppler are diagnostic. Candidate unmarked RGB must exactly match the reviewed PDF.js snapshot; this is independently checked from QPDF decoded image data.",
+  "limits": {
+    "pages": 8,
+    "pagePoints": 2000,
+    "rasterScale": 2,
+    "checkerTimeoutMs": 15000,
+    "aggregatePixels": 4000000,
+    "inputBytes": 104857600,
+    "nativeAddressSpaceBytes": 536870912,
+    "nativeCpuSeconds": 15,
+    "nativeOutputBytes": 100663296
+  },
   "fixtures": [
     "text",
     "rotated-cropped",
     "user-unit",
     "hidden-attachment",
     "shared-image",
-    "zero-marks"
+    "zero-marks",
+    "forms-actions-tags",
+    "fragmented-clipped-vector",
+    "old-revision",
+    "mixed-rotations-layers",
+    "image-only"
   ],
   "runtimeChecks": [
-    "independent page parsing and rendering",
-    "empty output text layer",
-    "zero embedded attachments",
-    "source metadata canary absent",
-    "mask interiors black",
-    "unmarked color and shared-image controls retained"
+    "strict independent input parse without repairs/password",
+    "independent output object and decoded-stream allowlist",
+    "exact canonical byte serialization with no unreachable objects/history/gaps/trailing payload",
+    "no unused compressed stream bytes",
+    "empty output text layer and no embedded attachments",
+    "fixed neutral metadata only",
+    "exact black mask pixels and exact unmarked reviewed-snapshot RGB",
+    "independent every-page parsing/rendering",
+    "known supported checker versions and no network"
   ],
   "qualificationPending": [
-    "complete independent decoded-object allowlist inspection",
-    "full ADR 0004 adversarial corpus",
-    "fidelity thresholds outside all marked regions",
-    "host-tool distribution and supported native platforms",
-    "production worker budgets and approval invalidation",
-    "raster fidelity and accessibility policy"
-  ]
+    "Production case/approval gates are B2-B6 work; this profile does not enable publication.",
+    "Other OS/architectures and stronger power-loss guarantees require native qualification."
+  ],
+  "profileQualified": true,
+  "distribution": "Fedora 44 ARM64 system prerequisites: qpdf, poppler-utils, bubblewrap, util-linux. No QPDF/Poppler binary is bundled, no runtime download; missing or unqualified tools block processing.",
+  "supportedTarget": "Fedora 44 ARM64 local filesystem",
+  "sourcePolicy": "At most 8 renderable pages; no password protection or parser repairs; all source pages reviewed as fixed PDF.js snapshots. Image-only output loses text, tags, signatures and accessibility. No native originals, attachments, OCR, forms, actions or metadata are copied."
 }

@@ -73,6 +73,7 @@ for (const name of [
   'preload.cjs',
   'probe.cjs',
   'verify.cjs',
+  'raster-policy.cjs',
   'evaluation-contract.json',
   'structural.mjs',
 ])

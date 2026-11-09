@@ -22,3 +22,5 @@ Accepted means the direction is agreed, not that implementation or verification 
 Each record includes context, a decision, alternatives and acceptance evidence. Track executable work in the [implementation plan](../redaction-studio-plan.md), rather than using ADRs as a task checklist.
 
 Created: 9 November 2026.
+
+The initial Fedora profile and verifier distribution are now selected in [ADR 0009](0009-fedora-raster-profile-and-verifier-distribution.md), with [qualification evidence](../b1-qualification.md). ADR 0008 remains the historical compatibility evaluation; its open Fedora raster-profile decision is resolved by ADR 0009. Other native targets remain unqualified.

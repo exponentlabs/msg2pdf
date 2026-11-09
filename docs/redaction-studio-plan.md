@@ -82,6 +82,8 @@ Exit: follow-up selection decisions name the engine/profile, independent checker
 
 ### B2: Define state and evidence (S01)
 
+The subsequent [B1 qualification](b1-qualification.md) and [ADR 0009](adr/0009-fedora-raster-profile-and-verifier-distribution.md) close the initial Fedora raster-profile/verifier decision. Continue with B2 and the selected Fedora storage adapter; B1's earlier compatibility limitations remain historical evidence, not current approval to use its structural path.
+
 Implement portable types, runtime schemas, canonical hashes and pure gate evaluation under `src/core/studio` and `src/shared`. Model revision, plan, candidate, verification contract, page review, family disposition, approval and frozen release selection separately. Keep database/React/Electron code outside domain policy. Candidate evidence includes engine/checker versions and contract hash.
 
 Exit: meaningful domain tests cover legal transitions, stale versions/hashes, missing checker evidence, changed contracts, zero marks and unresolved family members. Mutations return typed blockers, including `CASE_BUSY`, `CASE_LOCK_UNAVAILABLE` and integrity errors; no caller-provided approval boolean can satisfy a gate. B2 may proceed alongside B1 using adapter interfaces.
