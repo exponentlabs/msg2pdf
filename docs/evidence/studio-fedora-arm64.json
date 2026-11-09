@@ -49,12 +49,7 @@
       "evidence": "b1-qualification-fedora-arm64.json"
     },
     "processTermination": {
-      "boundaries": [
-        "intent",
-        "prepared",
-        "promoted",
-        "committed"
-      ],
+      "boundaries": ["intent", "prepared", "promoted", "committed"],
       "actualSIGKILL": true,
       "twoOpenerRace": true,
       "filesystem": "btrfs"
