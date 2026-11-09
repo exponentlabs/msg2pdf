@@ -4,6 +4,7 @@ import { runConversion } from '../core/engine';
 import { atomicWrite } from '../core/filesystem';
 import { detectOffice } from '../core/office';
 import { createPlan } from '../core/planner';
+import { assertLegacyDestination } from '../core/studio/paths';
 import { errorMessage } from '../shared/errors';
 import { parseArguments } from '../terminal/arguments';
 import { createServices } from './services';
@@ -30,6 +31,7 @@ export async function runCliWorker(): Promise<void> {
       return;
     }
     const plan = await createPlan(args.request, controller.signal);
+    if (args.report) await assertLegacyDestination(args.report);
     code = 1;
     if (
       args.report &&

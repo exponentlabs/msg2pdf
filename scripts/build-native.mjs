@@ -2,6 +2,28 @@ import { spawnSync } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+if (process.platform === 'linux' && process.arch === 'arm64') {
+  await mkdir('resources/native', { recursive: true });
+  const result = spawnSync(
+    'cc',
+    [
+      '-shared',
+      '-fPIC',
+      '-Wall',
+      '-Wextra',
+      '-Werror',
+      `-I${resolve('native/linux/node-api')}`,
+      resolve('native/linux/studio-lock.c'),
+      '-o',
+      resolve('resources/native/studio-lock.node'),
+    ],
+    { stdio: 'inherit' },
+  );
+  if (result.error)
+    throw new Error(`A C compiler is required for the Fedora studio lock: ${result.error.message}`);
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
 if (process.platform === 'win32') {
   await mkdir('resources/native', { recursive: true });
   const result = spawnSync(

@@ -46,6 +46,7 @@ Run these in the Fedora desktop terminal as your normal user. `sudo` is for inst
 
 ```sh
 sudo dnf install git tar gzip curl file which \
+  gcc qpdf poppler-utils util-linux \
   gtk3 nss alsa-lib libXScrnSaver libXtst mesa-libgbm \
   bubblewrap xorg-x11-server-Xvfb xorg-x11-xauth
 ```

@@ -2,6 +2,7 @@ node_modules/
 resources/native/*.exe
 resources/native/*.obj
 resources/native/*.pdb
+resources/native/*.node
 .pnpm-store/
 out/
 release/

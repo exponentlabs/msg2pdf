@@ -13,6 +13,7 @@ import { isWithin } from './filesystem';
 import { fileKind } from './formats';
 import { LIMITS } from './limits';
 import { NameAllocator, pdfNames } from './names';
+import { assertLegacyDestination } from './studio/paths';
 
 class DiscoveryLimitError extends Error {}
 export async function createPlan(
@@ -31,6 +32,7 @@ export async function createPlan(
       );
   }
   const output = resolve(request.output);
+  await assertLegacyDestination(output);
   const canonicalOutput = await realpath(output).catch(() => output);
   const files: PlannedFile[] = [];
   const issues: PlanIssue[] = [];

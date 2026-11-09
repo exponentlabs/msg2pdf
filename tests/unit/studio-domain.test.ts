@@ -21,6 +21,7 @@ function ready() {
     sourceHash,
     revision: {
       hash: pdfHash,
+      snapshotHash: evidenceHash('reviewed RGB'),
       sourceHash,
       converter: 'fixture',
       pages: Array.from({ length: 2 }, () => ({
