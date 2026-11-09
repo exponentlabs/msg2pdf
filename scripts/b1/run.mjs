@@ -145,9 +145,9 @@ async function inspect(path, expected, { raster = false } = {}) {
       '-cropbox',
       '-scale-dimension-before-rotation',
       '-scale-to-x',
-      String(Math.round(page.width * 2)),
+      String(Math.ceil(page.width * 2)),
       '-scale-to-y',
-      String(Math.round(page.height * 2)),
+      String(Math.ceil(page.height * 2)),
       path,
       output,
     ]);

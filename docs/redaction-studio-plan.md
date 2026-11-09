@@ -1,6 +1,6 @@
 # Redaction studio implementation plan
 
-Status: Planned; no redaction functionality is implemented by this document.
+Status: B1–B8 implemented for the bounded Fedora 44 ARM64 profile; see [studio workflow and qualification](studio.md). The original acceptance criteria below remain the build contract.
 
 Date: 9 November 2026.
 
@@ -48,7 +48,7 @@ All included pages require a review disposition. Zero marks is valid only with e
 
 ## Work packages
 
-All items below are planned. S01–S02 and S03 establish the foundations; they do not require a product-wide rewrite before the first slice.
+The initial Fedora implementation covers B1–B8 as recorded in [studio qualification](studio.md); OCR remains deferred. S01–S02 and S03 establish the foundations; they do not require a product-wide rewrite before the first slice.
 
 | ID  | Deliverable                                   | Depends on                     | Acceptance criteria                                                                                                                                                                                                   |
 | --- | --------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -68,11 +68,11 @@ S01 can proceed while S03 is investigated. S02's persistent implementation waits
 
 ## Ordered build sequence
 
-Each increment below is a reviewable feature-branch PR. Split a large increment further when needed, keeping the same exit criteria. All remain planned; this sequence does not authorize dependency purchases or change distribution licensing. Keep the existing converter available and passing throughout.
+Each increment below is a reviewable feature-branch PR. Split a large increment further when needed, keeping the same exit criteria. The ordered sequence records the original build contract; it does not authorize dependency purchases or change distribution licensing. Keep the existing converter available and passing throughout.
 
 ### B1: Prove the packaged adapters (S03)
 
-Local progress (9 November 2026): the [Fedora ARM64 compatibility spike](b1-fedora-arm64.md) demonstrates packaged SQLite/lock behavior and both PDF processing paths with independent local checks. [ADR 0007](adr/0007-fedora-arm64-storage-and-lock-spike.md) selects the Fedora storage/lock approach; [ADR 0008](adr/0008-pdf-adapter-compatibility-spike.md) records PDF candidates and limits. B1 remains open for full profile qualification and verifier distribution; no release-enabled profile is selected. The evidence unblocks B2 and then the selected Fedora storage portion of B3, not publication.
+Local progress (9 November 2026): the [Fedora ARM64 compatibility spike](b1-fedora-arm64.md) demonstrates packaged SQLite/lock behavior and both PDF processing paths with independent local checks. [ADR 0007](adr/0007-fedora-arm64-storage-and-lock-spike.md) selects the Fedora storage/lock approach; [ADR 0008](adr/0008-pdf-adapter-compatibility-spike.md) records PDF candidates and limits. The later 37-check qualification and ADR 0009 select the initial Fedora profile and system-managed verifiers. The evidence unblocks B2 and then the selected Fedora storage portion of B3, not publication.
 
 Start here. Build a synthetic fixture runner and a compatibility report before production case state or editing UI. Evaluate one structural-removal path and one fresh-raster path without integrating an unresolved licence into the distributed app. Compare removal correctness, fidelity/accessibility, offline operation, native packaging and maintenance cost. Test the viewer and genuinely independent output parser/renderer alongside the removal engine.
 

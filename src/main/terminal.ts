@@ -25,6 +25,13 @@ export async function runCliWorker(): Promise<void> {
   });
   let code = 2;
   try {
+    const raw = process.argv.slice(offset + 1);
+    if (raw[0] === 'studio') {
+      const { runStudioCli } = await import('./studio/cli');
+      emit(await runStudioCli(raw.slice(1), controller.signal));
+      code = 0;
+      return;
+    }
     const args = parseArguments(process.argv.slice(offset + 1), app.getVersion());
     if (typeof args === 'number') {
       app.exit(args);

@@ -53,3 +53,7 @@ An output-directory lock prevents competing batches. After a crash, verify that 
 Jobs run sequentially. Queue pagination bounds renderer work. Working-set monitoring samples periodically; it is not an instantaneous allocation ceiling.
 
 Local activity retains at most 20 batch summaries, with 500 file results per summary. It stores paths and counts, never email bodies. Export a report for a complete batch record. Preferences and history live in the OS application-data directory. Clear activity in the app to remove it.
+
+## Redaction studio
+
+See the [studio guide](studio.md) for the qualified Fedora ARM64 workflow and separate `msg2pdf studio` automation commands. Converter success is not redaction or release approval.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T21:38:23.491Z",
+  "generatedAt": "2026-11-09T22:42:53.372Z",
   "platform": "linux",
   "arch": "arm64",
   "releaseEnabled": false,
@@ -65,7 +65,7 @@
       "name": "structural-removal:text",
       "status": "passed",
       "detail": {
-        "sha256": "8ab2d4d7fbb1b9cebff6f3cb75e1feca37a2a7a7447fe9fadd8e9f460ffa75e3",
+        "sha256": "067de4d5401a3cd9b46921516d6f37b23077a3c64b8cb9179fd9c87158b0be50",
         "sanitizationQualified": false
       }
     },
@@ -91,7 +91,7 @@
       "name": "structural-removal:rotated-cropped",
       "status": "passed",
       "detail": {
-        "sha256": "da4e6af907d9c58518eb44126423596f41a0a58833eb740b1c0ddc85776e1859",
+        "sha256": "f73dff3c9b5ee92ebfab7a333263a8b259e2c7d68f90aa06781bba7d02c63e87",
         "sanitizationQualified": false
       }
     },
@@ -117,7 +117,7 @@
       "name": "structural-removal:user-unit",
       "status": "passed",
       "detail": {
-        "sha256": "49b4796ede7be2abf7c4973fe96a9b0c5f52266be1af653172b00b222e4a0792",
+        "sha256": "fcfed366fedbc07119c1a29151ead04ba0d9821be6540defad3193b7ed4c9938",
         "sanitizationQualified": false
       }
     },
@@ -143,7 +143,7 @@
       "name": "structural-removal:hidden-attachment",
       "status": "passed",
       "detail": {
-        "sha256": "731ffeb4673016e281be776a173c546c895b878911dc9fbc36010d475a80a3ea",
+        "sha256": "2dd44293794a67086c3eae1c3515e5e090a82ab093bc5e7b6a5a4c8dbd0a2f16",
         "sanitizationQualified": false,
         "remaining": {
           "hiddenTextRetained": true,
@@ -179,7 +179,7 @@
       "name": "structural-removal:shared-image",
       "status": "passed",
       "detail": {
-        "sha256": "b745fe54653422b3f91d7aa22fb6c12e1eb6b406933c1ebc02f15e8a57a1ae0d",
+        "sha256": "3a5213f97bdf407a746f5d76cd0a5d495ddf0d46d01e4f7e195522e4220ebaf9",
         "sanitizationQualified": false
       }
     },
@@ -205,7 +205,7 @@
       "name": "structural-removal:zero-marks",
       "status": "passed",
       "detail": {
-        "sha256": "86011fc7cdc2488f19fba40ab20c99f62d4b9733709669b9c9fe17887d5b549f",
+        "sha256": "52eafb4e8d14194e7b2eddbb1f198d713c54ce786c6a188070c7765a3a38b564",
         "sanitizationQualified": false
       }
     },
@@ -287,6 +287,24 @@
             "mean": 0.6808498360655738,
             "changedRatio": 0.004032349726775956,
             "maxTileMean": 54.1171875
+          }
+        ]
+      }
+    },
+    {
+      "name": "raster:fractional-edge",
+      "status": "passed",
+      "detail": {
+        "sha256": "424aecd81a572c72dd8a53093e3c8e84b770fbd2fcc9a95e8ac81bf0b7d1432c",
+        "pages": 1,
+        "pdfjs": "6.5.438",
+        "geometryRoundTrip": true,
+        "selectableText": true,
+        "fidelity": [
+          {
+            "mean": 0.5825077248403926,
+            "changedRatio": 0.0036124628333150804,
+            "maxTileMean": 38.7685546875
           }
         ]
       }
@@ -480,7 +498,7 @@
     "bundled": false
   },
   "packageHashes": {
-    "asar": "26a7587febfcd4b6d0862438616f8d1b0044a223a9ff5cdd4b32a60ac02663d5",
+    "asar": "94372a9215883549cabd8fb8353df381227aef3c954d3a3f42f26ebdda91cd89",
     "lock": "200f7c080dee7c38d34754772d477c09c2893dc9d085f441e2add81d27221e29"
   },
   "qpdf": {
@@ -516,7 +534,8 @@
       "fragmented-clipped-vector",
       "old-revision",
       "mixed-rotations-layers",
-      "image-only"
+      "image-only",
+      "fractional-edge"
     ],
     "runtimeChecks": [
       "strict independent input parse without repairs/password",
@@ -537,21 +556,21 @@
     "distribution": "Fedora 44 ARM64 system prerequisites: qpdf, poppler-utils, bubblewrap, util-linux. No QPDF/Poppler binary is bundled, no runtime download; missing or unqualified tools block processing.",
     "supportedTarget": "Fedora 44 ARM64 local filesystem",
     "sourcePolicy": "At most 8 renderable pages; no password protection or parser repairs; all source pages reviewed as fixed PDF.js snapshots. Image-only output loses text, tags, signatures and accessibility. No native originals, attachments, OCR, forms, actions or metadata are copied.",
-    "sha256": "450dc532fb97aa1fb84b3eb2518520536a55b8e8ee5d48073d16bd738a5722a8"
+    "sha256": "4afcf785aaeb9183f44cfc82e8182d8f6148f0cca2ba4d08b36ce2434a6e2693"
   },
   "sourceHashes": {
     "build.mjs": "82bd41383a32c44e2e7bfe094be210d53fc92ce4784ce0440b830da5dde49a6c",
     "electron-builder.cjs": "7b2f38dde1cacbfd6fdb28bf719aa60b152038d646285a7739f751b0d4e3e33f",
-    "evaluation-contract.json": "450dc532fb97aa1fb84b3eb2518520536a55b8e8ee5d48073d16bd738a5722a8",
-    "fixtures.mjs": "63e9310578f9043d80b89dd0c28884573a7414f6fc80c6b4f2dce86655b7dd20",
+    "evaluation-contract.json": "4afcf785aaeb9183f44cfc82e8182d8f6148f0cca2ba4d08b36ce2434a6e2693",
+    "fixtures.mjs": "bc77742e959eda8767189c29e5d6ea783b26ea873a93559cd770dcca81f399e7",
     "harness.css": "8ed8d3a8c0a77cbcc84436435fa61c6d4afa762a3432078c1bb3181eaf118b03",
     "lock.c": "2f51c2272d4d92a250d9f69687dac58553506e20c0545e5aa1f4ca15837a835d",
     "main.mjs": "09440eda5dddc482a7b85f012c94160d711e27cdcbec826b05ac4e17202a8f6c",
     "preload.cjs": "155f029bc6c539d89ca2943b776c8898238bbacf7c9c6ddf6374af7db972a1e3",
     "probe.cjs": "b4e723d6f5fb3f66d9818f3ecebc3351a97bb762414d3a4f36f32ada7755cf5f",
     "qualification.mjs": "11ed3f4427268e11bb206d3f7e1f2420cd09f152219d7666d704dae934e3c94e",
-    "raster-policy.cjs": "67d4bb531a805652bcc77b9fed1992c2bac96fc371c4d48b509c72c6f2584f66",
-    "run.mjs": "90af4515c137429f91a17dc8c371c45fcae0a1ed123bba35869c22f5fe7fc587",
+    "raster-policy.cjs": "09a00a0f05b48e7458a78f1cbb05f7b3501d57dcd2cd5e4de8c23f539d3cca4f",
+    "run.mjs": "e4e1f4252360c3d777c1aa1cb8d1b4c999ea637a58c6f380b59c05d6430b6cc7",
     "structural.mjs": "60117f36d2510f102e58c180a4656e16067d6f7d04d9b8b3312075e2b203e3c3",
     "verify.cjs": "47e5192ef2c530b8ee70b243be2e66247105597a4d4e76ce0db1858751442d1c",
     "viewer.html": "a34484daa6bcce1cfafdc006c10c94ef08d6fcf83857e6fc07bd8cd9b8d4cb2c",

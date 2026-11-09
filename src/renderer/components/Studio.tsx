@@ -4,12 +4,15 @@ import type { Rectangle, SnapshotPage, StudioView } from '../../shared/studio';
 import type { Plan } from '../../shared/studio-domain';
 import './Studio.css';
 
-type Page = Omit<SnapshotPage, 'referenceRgb'>;
+type Page = Omit<SnapshotPage, 'referenceRgb'> & { id: string };
 export function Studio() {
   const [view, setView] = useState<StudioView>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState('');
+  const [releaseSelection, setReleaseSelection] = useState<string[]>([]);
+  const [exclusionReason, setExclusionReason] = useState('');
+  const [coordinates, setCoordinates] = useState(['', '', '', '']);
   const [pages, setPages] = useState<Page[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -83,7 +86,8 @@ export function Studio() {
       void window.studio
         .snapshot({ id: documentId, revisionHash, snapshotHash })
         .then((snapshot) => {
-          if (active) setPages(snapshot.pages);
+          if (active)
+            setPages(snapshot.pages.map((page) => ({ ...page, id: crypto.randomUUID() })));
         })
         .catch((cause: unknown) => {
           if (active)
@@ -241,7 +245,9 @@ export function Studio() {
       <p className="studio-profile">
         The initial profile exports image-only PDFs. Searchable text, accessibility tags, forms,
         attachments, source metadata and signatures are removed. Originals stay private in the
-        working folder.
+        working folder. Office revisions show the print view only; nonprinted sheets, notes,
+        embedded native objects and other components may be absent. Review native-source limitations
+        before approving the fixed pages.
       </p>
       {state && (
         <>
@@ -252,7 +258,7 @@ export function Studio() {
               disabled={busy}
               onClick={() => void action(() => window.studio.import())}
             >
-              Add PDFs
+              Add documents
             </button>
             <span aria-live="polite">
               {busy ? 'Working…' : 'Saved'} · {state.documents.length} documents
@@ -276,7 +282,10 @@ export function Studio() {
                 onClick={() =>
                   document &&
                   void action(() =>
-                    window.studio.approveRelease({ version, selection: [document.id] }),
+                    window.studio.approveRelease({
+                      version,
+                      selection: releaseSelection.length ? releaseSelection : [document.id],
+                    }),
                   )
                 }
               >
@@ -293,7 +302,25 @@ export function Studio() {
               )}
               {state.releases?.map((release) => (
                 <p key={release.approval.manifest.releaseId}>
-                  {release.path} · {release.approval.manifest.files.length} document(s)
+                  {release.path} · {release.approval.manifest.files.length} document(s) ·{' '}
+                  {view?.case?.releaseStatus[release.approval.manifest.releaseId]}
+                  <button
+                    type="button"
+                    disabled={
+                      busy ||
+                      view?.case?.releaseStatus[release.approval.manifest.releaseId] !== 'current'
+                    }
+                    onClick={() =>
+                      void action(() =>
+                        window.studio.openRelease({
+                          id: release.approval.manifest.releaseId,
+                          version,
+                        }),
+                      )
+                    }
+                  >
+                    Open released package
+                  </button>
                 </p>
               ))}
             </section>
@@ -302,6 +329,20 @@ export function Studio() {
             <aside className="studio-documents" aria-label="Case documents">
               {state.documents.map((item) => (
                 <div key={item.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={releaseSelection.includes(item.id)}
+                      onChange={(event) =>
+                        setReleaseSelection(
+                          event.target.checked
+                            ? [...releaseSelection, item.id]
+                            : releaseSelection.filter((id) => id !== item.id),
+                        )
+                      }
+                    />
+                    Include in release selection
+                  </label>
                   <button
                     type="button"
                     aria-pressed={selected === item.id}
@@ -334,6 +375,20 @@ export function Studio() {
             <section className="studio-review" aria-label="PDF review">
               {document?.revision && currentPage ? (
                 <>
+                  <nav className="studio-thumbnails" aria-label="Review pages">
+                    {pages.map((page, index) => (
+                      <button
+                        type="button"
+                        key={page.id}
+                        aria-label={`Go to page ${index + 1}`}
+                        aria-current={pageIndex === index ? 'page' : undefined}
+                        onClick={() => setPageIndex(index)}
+                      >
+                        <img src={`data:image/png;base64,${page.png}`} alt="" width="48" />
+                        <span>{index + 1}</span>
+                      </button>
+                    ))}
+                  </nav>
                   <div className="studio-actions">
                     <button
                       type="button"
@@ -488,6 +543,55 @@ export function Studio() {
                       Clear page marks
                     </button>
                   </div>
+                  <details>
+                    <summary>Mark a region using the keyboard</summary>
+                    <p>
+                      Use PDF coordinates from the lower-left corner. Current crop:{' '}
+                      {currentPage.info.cropBox.join(', ')}.
+                    </p>
+                    {['Left', 'Bottom', 'Right', 'Top'].map((label, index) => (
+                      <label key={label}>
+                        {label}
+                        <input
+                          type="number"
+                          step="any"
+                          aria-label={`Region ${label.toLowerCase()}`}
+                          value={coordinates[index]}
+                          onChange={(event) =>
+                            setCoordinates((values) =>
+                              values.map((value, at) =>
+                                at === index ? event.target.value : value,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        coordinates.some(
+                          (value) => !value.trim() || !Number.isFinite(Number(value)),
+                        ) ||
+                        !reason.trim()
+                      }
+                      onClick={() =>
+                        void save([
+                          ...marks,
+                          {
+                            id: crypto.randomUUID(),
+                            page: pageIndex,
+                            rect: coordinates.map(Number) as Rectangle,
+                            reason,
+                            origin: 'manual',
+                          },
+                        ])
+                      }
+                    >
+                      Add coordinate region
+                    </button>
+                  </details>
                   <details>
                     <summary>Text lines and exact-phrase search</summary>
                     <p>
@@ -660,6 +764,76 @@ export function Studio() {
               )}
             </section>
           </div>
+          {!!state.families.length && (
+            <section className="studio-families">
+              <h2>Attachment families</h2>
+              <p>
+                Every attachment needs an explicit disposition. Review attachment names in parent
+                pages too. Excluding a file does not remove its printed name. Inline resources are
+                listed separately; exclude them with a reason if their visible representation in the
+                parent is sufficient.
+              </p>
+              <label>
+                Exclusion reason
+                <input
+                  value={exclusionReason}
+                  maxLength={200}
+                  onChange={(event) => setExclusionReason(event.target.value)}
+                />
+              </label>
+              {state.families.map((family) => (
+                <section key={family.id}>
+                  <h3>{view?.case?.names[family.members[0] ?? '']} family</h3>
+                  {!family.inventoryComplete && (
+                    <p role="alert">Inventory incomplete. This family cannot be released.</p>
+                  )}
+                  {family.members.map((id) => (
+                    <div key={id}>
+                      <span>
+                        {view?.case?.names[id]} · {family.dispositions[id]?.kind ?? 'unresolved'}{' '}
+                        {family.dispositions[id]?.kind === 'exclude'
+                          ? family.dispositions[id].reason
+                          : ''}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void action(() =>
+                            window.studio.disposition({
+                              version,
+                              familyId: family.id,
+                              documentId: id,
+                              kind: 'include',
+                            }),
+                          )
+                        }
+                      >
+                        Include {view?.case?.names[id]}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || !exclusionReason.trim()}
+                        onClick={() =>
+                          void action(() =>
+                            window.studio.disposition({
+                              version,
+                              familyId: family.id,
+                              documentId: id,
+                              kind: 'exclude',
+                              reason: exclusionReason,
+                            }),
+                          )
+                        }
+                      >
+                        Exclude {view?.case?.names[id]}
+                      </button>
+                    </div>
+                  ))}
+                </section>
+              ))}
+            </section>
+          )}
         </>
       )}
     </div>

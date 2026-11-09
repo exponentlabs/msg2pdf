@@ -64,6 +64,14 @@ const operationSchema = z
     source: z
       .object({ documentId: z.string().uuid(), originalName: z.string(), origin: z.string() })
       .optional(),
+    sources: z
+      .array(
+        z
+          .object({ documentId: z.string().uuid(), originalName: z.string(), origin: z.string() })
+          .strict(),
+      )
+      .max(64)
+      .optional(),
   })
   .strict();
 type Operation = z.infer<typeof operationSchema>;
@@ -89,6 +97,13 @@ async function privateDirectory(path: string): Promise<void> {
   if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('CASE_INTEGRITY_ERROR');
   await chmod(path, 0o700);
 }
+async function localFilesystem(path: string): Promise<void> {
+  const info = await statfs(path);
+  // Native Linux filesystems only. tmpfs is useful for ephemeral synthetic cases,
+  // and has the same process-termination boundary, with no reboot persistence.
+  if (![0x9123683e, 0xef53, 0x58465342, 0x01021994].includes(info.type >>> 0))
+    throw new Error('Use a local Btrfs, ext4, XFS or ephemeral tmpfs working folder.');
+}
 
 export class CaseStore {
   /** Internal boundary observer supports process-interruption verification; never exposed over IPC. */
@@ -109,6 +124,7 @@ export class CaseStore {
   ): Promise<CaseStore> {
     const absolute = resolve(root);
     await privateDirectory(absolute);
+    await localFilesystem(absolute);
     if ((await readdir(absolute)).length) throw new Error('Choose an empty working folder');
     await mkdir(join(absolute, '.studio'), { mode: 0o700 });
     for (const directory of roots) await privateDirectory(join(absolute, directory));
@@ -151,6 +167,7 @@ export class CaseStore {
   }
   static async open(root: string, lock: CaseLock): Promise<CaseStore> {
     const absolute = await realpath(root);
+    await localFilesystem(absolute);
     for (const directory of [
       absolute,
       join(absolute, '.studio'),
@@ -263,6 +280,10 @@ export class CaseStore {
         this.db
           .prepare('INSERT INTO sources VALUES(?,?)')
           .run(operation.source.documentId, JSON.stringify(operation.source));
+      for (const source of operation.sources ?? [])
+        this.db
+          .prepare('INSERT INTO sources VALUES(?,?)')
+          .run(source.documentId, JSON.stringify(source));
       this.db.prepare('UPDATE operations SET stage=? WHERE id=?').run('complete', id);
       this.db
         .prepare('INSERT INTO events(kind,version,digest) VALUES(?,?,?)')
@@ -282,6 +303,7 @@ export class CaseStore {
     nextState: StudioState,
     outputs: { artifact: Omit<Artifact, 'hash' | 'size'>; bytes: Uint8Array }[] = [],
     source?: Operation['source'],
+    sources?: Operation['sources'],
   ): Promise<StudioState> {
     if (this.busy) throw new Error('CASE_BUSY');
     this.busy = true;
@@ -308,7 +330,10 @@ export class CaseStore {
           size: bytes.byteLength,
         })),
         ...(source ? { source } : {}),
+        ...(sources ? { sources } : {}),
       });
+      if (Buffer.byteLength(JSON.stringify(operation.nextState)) > 32 * 1024 * 1024)
+        throw new Error('Case metadata budget exceeded');
       if (
         required > 256 * 1024 * 1024 ||
         outputs.some((output) => output.bytes.byteLength > 100 * 1024 * 1024)
@@ -513,6 +538,8 @@ export class CaseStore {
         throw new Error(gate.ok ? 'RELEASE_UNAPPROVED' : gate.blockers[0]?.code);
       const path = `Redacted for sharing/${approval.manifest.releaseId}`;
       const outputs: { artifact: Artifact; bytes: Buffer }[] = [];
+      let selectedBytes = 0;
+      const available = await statfs(this.root);
       for (const file of approval.manifest.files) {
         const source = this.artifacts().find(
           (item) =>
@@ -521,6 +548,12 @@ export class CaseStore {
             item.hash === file.hash,
         );
         if (!source) throw new Error('VERIFICATION_FAILED');
+        selectedBytes += source.size;
+        if (
+          selectedBytes > 255 * 1024 * 1024 ||
+          available.bavail * available.bsize < selectedBytes + 65 * 1024 * 1024
+        )
+          throw new Error('Release disk budget exceeded');
         const bytes = await readFile(await this.path(source.path));
         if (bytesHash(bytes) !== file.hash) throw new Error('CASE_INTEGRITY_ERROR');
         outputs.push({
@@ -650,8 +683,7 @@ export class CaseStore {
           if (!missing(error)) throw error;
         }
         if (promoted) this.finish(id, operation);
-        else
-          this.db.prepare('UPDATE operations SET stage=? WHERE id=?').run('aborted', id);
+        else this.db.prepare('UPDATE operations SET stage=? WHERE id=?').run('aborted', id);
         continue;
       }
       try {

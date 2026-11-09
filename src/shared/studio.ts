@@ -23,6 +23,7 @@ export interface StudioView {
   case?:
     | {
         state: StudioState;
+        releaseStatus: Record<string, 'current' | 'superseded'>;
         label: string;
         names: Record<string, string>;
         blockers: Record<string, Blocker[]>;
@@ -70,4 +71,12 @@ export interface StudioApi {
   }): Promise<StudioView>;
   approveRelease(request: { version: number; selection: string[] }): Promise<StudioView>;
   publish(request: { version: number }): Promise<StudioView>;
+  openRelease(request: { id: string; version: number }): Promise<StudioView>;
+  disposition(request: {
+    version: number;
+    familyId: string;
+    documentId: string;
+    kind: 'include' | 'exclude' | 'unresolved';
+    reason?: string;
+  }): Promise<StudioView>;
 }

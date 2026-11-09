@@ -52,5 +52,7 @@ const studio: StudioApi = {
   reviewCandidate: (request) => invoke('studio:reviewCandidate', request),
   approveRelease: (request) => invoke('studio:approveRelease', request),
   publish: (request) => invoke('studio:publish', request),
+  openRelease: (request) => invoke('studio:openRelease', request),
+  disposition: (request) => invoke('studio:disposition', request),
 };
 contextBridge.exposeInMainWorld('studio', Object.freeze(studio));

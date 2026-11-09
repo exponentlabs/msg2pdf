@@ -177,6 +177,7 @@ export function releaseGate(state: StudioState): Gate {
   const gate = selectionGate(state, ids, state.version);
   if (!gate.ok) return gate;
   if (
+    approval.stateVersion !== state.version ||
     approval.contextHash !== releaseFingerprint(state, ids) ||
     approval.manifestHash !== evidenceHash(approval.manifest) ||
     state.releases?.some(

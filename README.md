@@ -45,6 +45,10 @@ msg2pdf -i ./mail -o ./pdf --report ./conversion-report.json --page-size Letter
 
 `--json` writes a summary to stdout; progress and errors go to stderr. Exit codes are **0** for success, **1** for conversion failures, **2** for invalid arguments/input planning and **130** for cancellation. See [usage](docs/usage.md) for limits, partial results and configuration.
 
+## Redaction studio
+
+A locally qualified Fedora 44 ARM64 studio now supports fixed PDF review, saved redaction plans, email/Office preparation, attachment dispositions, independently verified image-only candidates and explicitly approved immutable releases. See [setup, workflow, limits and CLI](docs/studio.md). Other studio platforms remain unqualified; the converter is separate.
+
 ## Build from source
 
 Use Node 24 LTS and **pnpm 12.16.1**. Install pnpm using its [official instructions](https://pnpm.io/installation).

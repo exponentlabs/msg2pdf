@@ -26,6 +26,7 @@ export async function fixtures(imageBase64) {
     'fragmented-clipped-vector',
     'old-revision',
     'mixed-rotations-layers',
+    'fractional-edge',
   ]) {
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -34,6 +35,10 @@ export async function fixtures(imageBase64) {
     page.drawText('PUBLIC NEIGHBOR', { x: 40, y: 240, size: 14, font });
     page.drawRectangle({ x: 40, y: 100, width: 160, height: 40, color: rgb(0, 0.8, 0) });
     const marks = name === 'zero-marks' ? [] : [{ page: 0, rect: [35, 290, 220, 325] }];
+    if (name === 'fractional-edge') {
+      page.setSize(400.1, 399.8);
+      marks.push({ page: 0, rect: [390, 0, 400.1, 10] });
+    }
     if (name === 'rotated-cropped') {
       page.setCropBox(20, 20, 340, 340);
       page.setRotation(degrees(90));

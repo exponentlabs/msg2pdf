@@ -126,6 +126,7 @@ export class StudioRuntime {
         'assemble.cjs',
         'raster-policy.cjs',
         'verify.cjs',
+        'source.cjs',
       ])
         engine.update(await readFile(join(this.assets, file)));
       return {
@@ -150,7 +151,7 @@ export class StudioRuntime {
   }
   async worker(
     workspace: string,
-    script: 'verify.cjs' | 'assemble.cjs',
+    script: 'verify.cjs' | 'assemble.cjs' | 'source.cjs',
     args: string[],
     signal?: AbortSignal,
   ): Promise<string> {
@@ -362,9 +363,12 @@ export class StudioRuntime {
         )
           return new Response('Denied', { status: 403 });
         const mime =
-          { '.html': 'text/html', '.mjs': 'application/javascript', '.wasm': 'application/wasm' }[
-            extname(path)
-          ] ?? 'application/octet-stream';
+          {
+            '.html': 'text/html',
+            '.mjs': 'application/javascript',
+            '.js': 'application/javascript',
+            '.wasm': 'application/wasm',
+          }[extname(path)] ?? 'application/octet-stream';
         return new Response(await readFile(path), {
           headers: {
             'Content-Type': mime,

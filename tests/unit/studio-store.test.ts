@@ -1,8 +1,9 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { build } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { atomicWrite } from '../../src/core/filesystem';
 import { createPlan } from '../../src/core/planner';
@@ -21,7 +22,7 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
   let root: string;
   let lock: CaseLock;
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'msg2pdf-store-'));
+    root = await mkdtemp(join(process.env.MSG2PDF_STUDIO_TEST_ROOT ?? tmpdir(), 'msg2pdf-store-'));
     const binary = join(root, 'lock.node');
     execFileSync('cc', [
       '-shared',
@@ -35,6 +36,22 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
       binary,
     ]);
     lock = nativeCaseLock(binary);
+    await build({
+      stdin: {
+        contents: `
+      const {CaseStore,nativeCaseLock}=require('./src/main/studio/store.ts');
+      (async()=>{const [action,directory,binary,boundary]=process.argv.slice(2);
+      const store=await CaseStore.open(directory,nativeCaseLock(binary));
+      if(action==='publish'){store.observer=(phase)=>{if(phase===boundary)process.kill(process.pid,'SIGKILL')};await store.publish(store.state().version);}
+      else {process.stdout.write('OWNED\\n');await new Promise(r=>setTimeout(r,500));}
+      store.close();})().catch(e=>{process.stdout.write(e.code||e.message);process.exitCode=2;});`,
+        resolveDir: resolve('.'),
+      },
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      outfile: join(root, 'process.cjs'),
+    });
   });
   afterAll(async () => {
     if (root) await rm(root, { recursive: true, force: true });
@@ -102,6 +119,7 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
     const next = result.store.state();
     const manifest = makeReleaseManifest(next, [document.id], crypto.randomUUID());
     next.releaseApproval = {
+      stateVersion: next.version + 1,
       manifest,
       manifestHash: evidenceHash(manifest),
       contextHash: releaseFingerprint({ ...next, version: next.version + 1 }, [document.id]),
@@ -144,6 +162,47 @@ describe.skipIf(process.platform !== 'linux')('durable studio store with real OS
     const second = await mkdtemp(join(root, 'native-second-'));
     expect(() => lock.promoteDirectory(first, second)).toThrow();
   });
+  it.each(['intent', 'prepared', 'promoted', 'committed'])(
+    'survives SIGKILL at publication %s and admits one racing owner',
+    async (boundary) => {
+      const { store, directory } = await approved();
+      store.close();
+      expect(() =>
+        execFileSync(
+          process.execPath,
+          [join(root, 'process.cjs'), 'publish', directory, join(root, 'lock.node'), boundary],
+          { stdio: 'pipe' },
+        ),
+      ).toThrow();
+      const opener = () =>
+        new Promise<{ code: number | null; stdout: string }>((resolveExit, reject) => {
+          const child = spawn(
+            process.execPath,
+            [join(root, 'process.cjs'), 'open', directory, join(root, 'lock.node')],
+            { stdio: ['ignore', 'pipe', 'ignore'] },
+          );
+          let stdout = '';
+          child.stdout.on('data', (chunk) => {
+            stdout += chunk.toString();
+          });
+          child.on('error', reject);
+          child.on('close', (code) => resolveExit({ code, stdout }));
+        });
+      const outcomes = await Promise.all([opener(), opener()]);
+      expect(
+        outcomes.filter((item) => item.code === 0 && item.stdout.includes('OWNED')),
+      ).toHaveLength(1);
+      expect(
+        outcomes.filter((item) => item.code === 2 && item.stdout === 'CASE_BUSY'),
+      ).toHaveLength(1);
+      const recovered = await CaseStore.open(directory, lock);
+      expect(recovered.state().releases?.length ?? 0).toBe(
+        ['promoted', 'committed'].includes(boundary) ? 1 : 0,
+      );
+      await recovered.validate();
+      recovered.close();
+    },
+  );
   it('captures a private immutable source with provenance and survives relocation/reopen', async () => {
     const { directory, input, store } = await setup();
     const state = await store.capture(input, 0);

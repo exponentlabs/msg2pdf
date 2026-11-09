@@ -217,76 +217,7 @@ export function createOfficeConverter(
       process.platform === 'darwin' ? '/private/tmp/m2p-' : join(tmpdir(), 'msg2pdf-office-'),
     );
     try {
-      const sourceInfo = await lstat(source);
-      if (
-        !sourceInfo.isFile() ||
-        sourceInfo.isSymbolicLink() ||
-        sourceInfo.size > LIMITS.inputBytes
-      )
-        throw new Error('Office input must be a regular file no larger than 100 MiB');
-      const input = join(workspace, `document${extname(source).toLowerCase()}`);
-      await copyFile(source, input);
-      const output = join(workspace, 'pdf');
-      const profile = join(workspace, 'profile');
-      await mkdir(output);
-      await mkdir(join(profile, 'user'), { recursive: true });
-      await writeFile(
-        join(profile, 'user', 'registrymodifications.xcu'),
-        `<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item><item oor:path="/org.openoffice.Office.Common/Load"><prop oor:name="UpdateDocMode" oor:op="fuse"><value>0</value></prop></item></oor:items>`,
-        { mode: 0o600 },
-      );
-      const args = [
-        `-env:UserInstallation=${pathToFileURL(profile).href}`,
-        `-env:OSL_SOCKET_PATH=${workspace}`,
-        '--headless',
-        '--nologo',
-        '--nodefault',
-        '--norestore',
-        '--convert-to',
-        'pdf',
-        '--outdir',
-        output,
-        input,
-      ];
-      const command = await officeSandbox(office.executable, args, workspace, windowsHelper);
-      const env: NodeJS.ProcessEnv = {
-        PATH: process.env.PATH,
-        SystemRoot: process.env.SystemRoot,
-        WINDIR: process.env.WINDIR,
-        LANG: process.env.LANG || 'en_US.UTF-8',
-        HOME: workspace,
-        TMPDIR: workspace,
-        TEMP: workspace,
-        TMP: workspace,
-        XDG_CACHE_HOME: join(workspace, 'cache'),
-        SAL_USE_VCLPLUGIN: 'svp',
-        OSL_SOCKET_PATH: workspace,
-      };
-      await runProcess(command.executable, command.args, {
-        timeoutMs: LIMITS.officeTimeoutMs,
-        env,
-        cwd: workspace,
-        ...(signal ? { signal } : {}),
-        memoryBytes: 1536 * 1024 * 1024,
-      });
-      const converted = join(output, 'document.pdf');
-      const info = await lstat(converted).catch((error: unknown) => {
-        if (isMissing(error))
-          throw new Error(
-            'LibreOffice produced no PDF. Check whether the document is password protected, damaged, or unsupported.',
-          );
-        throw error;
-      });
-      if (
-        !info.isFile() ||
-        info.isSymbolicLink() ||
-        info.nlink !== 1 ||
-        info.size > LIMITS.pdfBytes
-      )
-        throw new Error('LibreOffice produced an invalid or oversized output');
-      const pdf = await readFile(converted);
-      if (pdf.subarray(0, 5).toString() !== '%PDF-')
-        throw new Error('LibreOffice did not produce a valid PDF');
+      const pdf = await prepareOfficePdf(source, workspace, office, windowsHelper, signal);
       return atomicProduce(destination, root, overwrite, (temporary) =>
         writeFile(temporary, pdf, { mode: 0o600, flag: 'wx' }),
       );
@@ -294,4 +225,77 @@ export function createOfficeConverter(
       await rm(workspace, { recursive: true, force: true });
     }
   };
+}
+
+/** Render into a caller-owned private workspace; publication remains the caller's responsibility. */
+export async function prepareOfficePdf(
+  source: string,
+  workspace: string,
+  office: OfficeStatus,
+  windowsHelper: string,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  if (!office.available || !office.executable) throw new Error('OFFICE_UNAVAILABLE');
+  const sourceInfo = await lstat(source);
+  if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink() || sourceInfo.size > LIMITS.inputBytes)
+    throw new Error('Office input must be a regular file no larger than 100 MiB');
+  const input = join(workspace, `document${extname(source).toLowerCase()}`);
+  await copyFile(source, input);
+  const output = join(workspace, 'pdf');
+  const profile = join(workspace, 'profile');
+  await mkdir(output);
+  await mkdir(join(profile, 'user'), { recursive: true });
+  await writeFile(
+    join(profile, 'user', 'registrymodifications.xcu'),
+    `<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item><item oor:path="/org.openoffice.Office.Common/Load"><prop oor:name="UpdateDocMode" oor:op="fuse"><value>0</value></prop></item></oor:items>`,
+    { mode: 0o600 },
+  );
+  const args = [
+    `-env:UserInstallation=${pathToFileURL(profile).href}`,
+    `-env:OSL_SOCKET_PATH=${workspace}`,
+    '--headless',
+    '--nologo',
+    '--nodefault',
+    '--norestore',
+    '--convert-to',
+    'pdf',
+    '--outdir',
+    output,
+    input,
+  ];
+  const command = await officeSandbox(office.executable, args, workspace, windowsHelper);
+  const env: NodeJS.ProcessEnv = {
+    PATH: process.env.PATH,
+    SystemRoot: process.env.SystemRoot,
+    WINDIR: process.env.WINDIR,
+    LANG: process.env.LANG || 'en_US.UTF-8',
+    HOME: workspace,
+    TMPDIR: workspace,
+    TEMP: workspace,
+    TMP: workspace,
+    XDG_CACHE_HOME: join(workspace, 'cache'),
+    SAL_USE_VCLPLUGIN: 'svp',
+    OSL_SOCKET_PATH: workspace,
+  };
+  await runProcess(command.executable, command.args, {
+    timeoutMs: LIMITS.officeTimeoutMs,
+    env,
+    cwd: workspace,
+    ...(signal ? { signal } : {}),
+    memoryBytes: 1536 * 1024 * 1024,
+  });
+  const converted = join(output, 'document.pdf');
+  const info = await lstat(converted).catch((error: unknown) => {
+    if (isMissing(error))
+      throw new Error(
+        'LibreOffice produced no PDF. Check whether the document is password protected, damaged, or unsupported.',
+      );
+    throw error;
+  });
+  if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || info.size > LIMITS.pdfBytes)
+    throw new Error('LibreOffice produced an invalid or oversized output');
+  const pdf = await readFile(converted);
+  if (pdf.subarray(0, 5).toString() !== '%PDF-')
+    throw new Error('LibreOffice did not produce a valid PDF');
+  return pdf;
 }

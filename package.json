@@ -43,7 +43,8 @@
     "b1:verify": "node scripts/b1/run.mjs",
     "licenses:generate": "node scripts/licenses.mjs",
     "audit:production": "pnpm audit --prod --audit-level high",
-    "source:archive": "node scripts/source-archive.mjs"
+    "source:archive": "node scripts/source-archive.mjs",
+    "test:packaged:studio": "node scripts/test-packaged-studio.mjs"
   },
   "dependencies": {
     "@kenjiuno/decompressrtf": "0.1.3",

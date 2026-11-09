@@ -27,7 +27,8 @@
     "fragmented-clipped-vector",
     "old-revision",
     "mixed-rotations-layers",
-    "image-only"
+    "image-only",
+    "fractional-edge"
   ],
   "runtimeChecks": [
     "strict independent input parse without repairs/password",

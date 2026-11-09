@@ -19,6 +19,7 @@ globalThis.prepareStudioSnapshot = async ({ bytes, pageInfos }) => {
       throw new Error('PAGE_LIMIT');
     const pages = [];
     let totalPixels = 0;
+    let totalText = 0;
     for (let index = 0; index < pdf.numPages; index++) {
       const page = await pdf.getPage(index + 1);
       const info = pageInfos[index];
@@ -60,6 +61,8 @@ globalThis.prepareStudioSnapshot = async ({ bytes, pageInfos }) => {
       if (content.items.length > 50_000) throw new Error('TEXT_LIMIT');
       const text = [];
       for (const item of content.items) {
+        if ('str' in item) totalText += item.str.length;
+        if (totalText > 2_000_000) throw new Error('TEXT_LIMIT');
         if (
           !('str' in item) ||
           !item.str ||

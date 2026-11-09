@@ -1,6 +1,6 @@
 # ADR 0002: Durable case state, revision provenance and recovery
 
-- Status: Proposed
+- Status: Accepted for the initial Fedora profile
 - Date: 9 November 2026
 - Scope: Persistence and filesystem transactions
 
@@ -74,3 +74,7 @@ Back up a case through a consistent snapshot that includes its database and all 
 - Stale plan writes and stale approvals are rejected with actionable blockers.
 - External changes, duplicate inputs, case relocation, unsupported schemas and competing app instances have defined outcomes.
 - Backup/restore preserves document relationships and evidence; missing artifacts block dependent transitions.
+
+## Initial implementation evidence
+
+The bounded Fedora ARM64 implementation and local checks are documented in the [studio guide](../studio.md). Other studio platforms remain unqualified. The raster profile uses whole-line text selection, explicit inline-resource exclusions, a single local reviewer and process-termination recovery; it does not claim native-file component review, authenticated approval or VM-reset/power-loss durability.

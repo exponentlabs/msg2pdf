@@ -1,6 +1,6 @@
 # B1 qualification continuation — Fedora ARM64
 
-The initial [compatibility experiment](b1-fedora-arm64.md) is followed by 36 passing qualification checks using the installed Fedora verifiers. The [captured JSON evidence](evidence/b1-qualification-fedora-arm64.json) includes exact source, contract, package, tool and candidate hashes. [ADR 0009](adr/0009-fedora-raster-profile-and-verifier-distribution.md) selects the bounded initial profile and its deployment model. B1 is complete for Fedora 44 ARM64; publication stays disabled until B2–B6 are implemented and tested. Other platforms remain unqualified.
+The initial [compatibility experiment](b1-fedora-arm64.md) is followed by 37 passing qualification checks using the installed Fedora verifiers. The [captured JSON evidence](evidence/b1-qualification-fedora-arm64.json) includes exact source, contract, package, tool and candidate hashes. [ADR 0009](adr/0009-fedora-raster-profile-and-verifier-distribution.md) selects the bounded initial profile and its deployment model. B1 is complete for Fedora 44 ARM64; the subsequent [production studio](studio.md) adds the B2–B8 case/review/publication gates. Other platforms remain unqualified.
 
 QPDF now provides the independent decoded-object allowlist missing from the initial spike. The checker also validates compressed-byte consumption and reconstructs the entire permitted serialization from QPDF's independent parse, so accepted files contain neither uninterpreted objects nor bytes outside that profile. No assembler code is imported by the policy checker. Decoded RGB checks require every marked pixel to be black and every unmarked pixel to equal the captured reviewed snapshot exactly. Poppler supplies independent parse/text/attachment/render checks. Source-renderer differences are retained as diagnostics, not silently counted as equivalent appearances.
 
@@ -17,4 +17,4 @@ B1_MUPDF_MODULE=/tmp/msg2pdf-b1-mupdf/node_modules/mupdf/dist/mupdf.js \
   xvfb-run -a pnpm b1:verify
 ```
 
-The selected production profile needs no MuPDF dependency. The comparison harness still runs its original six structural-removal comparisons and records their failure to establish sanitization; the 36-check qualification does not authorize that path. `releaseEnabled` remains false because this isolated harness cannot create case review or release approvals.
+The selected production profile needs no MuPDF dependency. The comparison harness still runs its original six structural-removal comparisons and records their failure to establish sanitization; the 37-check qualification does not authorize that path. `releaseEnabled` remains false because this isolated harness cannot create case review or release approvals.

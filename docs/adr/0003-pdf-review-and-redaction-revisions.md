@@ -1,6 +1,6 @@
 # ADR 0003: Review fixed PDF revisions and save redaction plans separately
 
-- Status: Proposed
+- Status: Accepted for the initial Fedora profile
 - Date: 9 November 2026
 - Scope: Review format, editing model and studio interface
 
@@ -44,3 +44,7 @@ Prefer evaluating PDF.js for local page rendering and text selection. It describ
 - Subject/header content, inline images and repeated occurrences can be marked on the actual PDF.
 - No search matches and no text layer are distinct states; every included page has a recorded review disposition.
 - A reviewer sees the final candidate bytes that will be published, identified by hash.
+
+## Initial implementation evidence
+
+The bounded Fedora ARM64 implementation and local checks are documented in the [studio guide](../studio.md). Other studio platforms remain unqualified. The raster profile uses whole-line text selection, explicit inline-resource exclusions, a single local reviewer and process-termination recovery; it does not claim native-file component review, authenticated approval or VM-reset/power-loss durability.

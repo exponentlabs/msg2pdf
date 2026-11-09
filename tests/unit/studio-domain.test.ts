@@ -14,6 +14,7 @@ import {
   studioStateSchema,
   validatePlan,
 } from '../../src/core/studio/domain';
+import { pdfInventory } from '../../src/core/studio/pdf-inventory';
 
 function ready() {
   const sourceHash = evidenceHash('captured source');
@@ -71,10 +72,52 @@ function ready() {
 }
 
 describe('studio publication gates', () => {
+  it('inventories associated and orphan PDF streams without treating external file references as exclusions', () => {
+    const graph = {
+      qpdf: [
+        {},
+        {
+          'obj:1 0 R': {
+            value: {
+              '/Type': '/Filespec',
+              '/UF': 'u:associated.txt',
+              '/EF': { '/F': '2 0 R', '/UF': '2 0 R' },
+            },
+          },
+          'obj:2 0 R': { stream: { dict: { '/Type': '/EmbeddedFile' } } },
+          'obj:3 0 R': { stream: { dict: { '/Type': '/EmbeddedFile' } } },
+          'obj:4 0 R': { value: { '/Type': '/Filespec', '/F': 'u:external.txt' } },
+          'obj:5 0 R': {
+            value: { '/Type': '/Filespec', '/F': 'u:second-parent.txt', '/EF': { '/F': '2 0 R' } },
+          },
+        },
+      ],
+    };
+    expect(pdfInventory(graph)).toEqual([
+      { name: 'associated.txt', object: '2 0 R' },
+      { name: 'external.txt', object: null },
+      { name: 'second-parent.txt', object: '2 0 R' },
+      { name: 'embedded-data-4.bin', object: '3 0 R' },
+    ]);
+    expect(() =>
+      pdfInventory({
+        qpdf: [
+          {},
+          Object.fromEntries(
+            Array.from({ length: 65 }, (_, index) => [
+              `obj:${index} 0 R`,
+              { stream: { dict: { '/Type': '/EmbeddedFile' } } },
+            ]),
+          ),
+        ],
+      }),
+    ).toThrow('INVENTORY_LIMIT');
+  });
   it('binds release approval to the exact version, manifest and candidate selection', () => {
     const { state, document } = ready();
     const manifest = makeReleaseManifest(state, [document.id], randomUUID());
     state.releaseApproval = {
+      stateVersion: state.version,
       manifest,
       manifestHash: evidenceHash(manifest),
       contextHash: releaseFingerprint(state, [document.id]),

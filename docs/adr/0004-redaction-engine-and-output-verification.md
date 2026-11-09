@@ -1,6 +1,6 @@
 # ADR 0004: Engine boundary, content removal, sanitization and verification
 
-- Status: Proposed; implementation library and export profile open
+- Status: Accepted for the initial Fedora profile; library/profile selected in ADR 0009
 - Date: 9 November 2026
 - Scope: Producing and checking shareable PDFs
 
@@ -62,3 +62,7 @@ Distinguish profile-qualification fixtures from per-candidate checks. Synthetic 
 Publish a reproducible fixture/result matrix covering rotated and fragmented text, ligatures, hidden OCR, forms, shared images, vector content, annotations, embedded files, tags, old revisions and malformed inputs. Demonstrate blocked publication for failed checks and a passing candidate review/export using the packaged runtime.
 
 The matrix must identify the removal engine and independent parser/renderer implementations and versions. Disable or kill each mandatory checker, change the verification-contract version and introduce parser disagreement; all must invalidate or block publication. Include a zero-mark sanitized export in each qualified profile.
+
+## Initial implementation evidence
+
+The bounded Fedora ARM64 implementation and local checks are documented in the [studio guide](../studio.md). Other studio platforms remain unqualified. The raster profile uses whole-line text selection, explicit inline-resource exclusions, a single local reviewer and process-termination recovery; it does not claim native-file component review, authenticated approval or VM-reset/power-loss durability.

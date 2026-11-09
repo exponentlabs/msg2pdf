@@ -112,6 +112,7 @@ export const releaseManifestSchema = z
 export type ReleaseManifest = z.infer<typeof releaseManifestSchema>;
 export const releaseApprovalSchema = z
   .object({
+    stateVersion: z.number().int().nonnegative(),
     manifest: releaseManifestSchema,
     manifestHash: sha256Schema,
     contextHash: sha256Schema,

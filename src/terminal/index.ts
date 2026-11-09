@@ -8,6 +8,30 @@ import { parseArguments, terminalText } from './arguments';
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   if (argv[0] === '--') argv.shift();
+  if (argv[0] === 'studio') {
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    delete env.ELECTRON_NO_ASAR;
+    const worker = spawn(
+      process.env.MSG2PDF_ELECTRON_EXE ?? process.execPath,
+      [resolve(__dirname, '../..'), '--cli', ...argv],
+      { env, stdio: ['pipe', 'inherit', 'inherit'] },
+    );
+    const cancel = () => {
+      if (!worker.stdin.destroyed) worker.stdin.write('cancel\n');
+    };
+    process.on('SIGINT', cancel);
+    process.on('SIGTERM', cancel);
+    worker.stdin.on('error', () => {});
+    return new Promise<number>((resolveExit) => {
+      worker.on('error', () => resolveExit(1));
+      worker.on('exit', (code) => {
+        process.removeListener('SIGINT', cancel);
+        process.removeListener('SIGTERM', cancel);
+        resolveExit(code ?? 1);
+      });
+    });
+  }
   let parsed: ReturnType<typeof parseArguments>;
   try {
     parsed = parseArguments(argv);

@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
 import { z } from 'zod';
+import { fileKind } from '../../core/formats';
+import { detectOffice, prepareOfficePdf } from '../../core/office';
 import {
   documentGate,
   evidenceHash,
@@ -21,6 +24,7 @@ import { pixelRegion } from '../../core/studio/geometry';
 import { decodePpm, encodeRgbPng } from '../../core/studio/png';
 import { originKey } from '../../shared/security';
 import type { Snapshot, StudioView } from '../../shared/studio';
+import { renderPdf } from '../services';
 import { StudioRuntime, snapshotSchema } from './runtime';
 import { type Artifact, bytesHash, CaseStore, nativeCaseLock } from './store';
 
@@ -89,6 +93,18 @@ export class StudioService {
         ? {
             case: {
               state,
+              releaseStatus: Object.fromEntries(
+                (state.releases ?? []).map((release) => [
+                  release.approval.manifest.releaseId,
+                  release.approval.contextHash ===
+                  releaseFingerprint(
+                    { ...state, version: release.approval.stateVersion },
+                    release.approval.manifest.files.map((file) => file.documentId),
+                  )
+                    ? 'current'
+                    : 'superseded',
+                ]),
+              ),
               label: basename(this.store.root),
               names: Object.fromEntries(
                 state.documents.map((document) => [
@@ -180,14 +196,18 @@ export class StudioService {
   async import(signal: AbortSignal): Promise<StudioView> {
     const store = this.current();
     const selected = await dialog.showOpenDialog(this.window, {
-      title: 'Capture PDFs for review',
+      title: 'Capture documents for review',
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
+      filters: [
+        {
+          name: 'Documents and email',
+          extensions: ['pdf', 'msg', 'eml', 'doc', 'docx', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx'],
+        },
+        { name: 'All files', extensions: ['*'] },
+      ],
     });
     for (const path of selected.filePaths) {
       signal.throwIfAborted();
-      if (extname(path).toLowerCase() !== '.pdf')
-        throw new Error('Only PDFs are supported in this slice.');
       await store.capture(path, store.state().version, signal);
     }
     return this.view();
@@ -229,10 +249,122 @@ export class StudioService {
     const document = this.document(state, request.id);
     if (document.revision) return this.view();
     const source = await this.artifact(document.id, 'source', document.sourceHash);
-    const job = await store.scratch();
+    const job = await store.scratch([
+      'input.pdf',
+      'output.pdf',
+      'request.json',
+      ...Array.from({ length: 64 }, (_, index) => `attachment-${index}.bin`),
+    ]);
     let failure: unknown;
     try {
       await writeFile(join(job.path, 'input.pdf'), source.bytes, { mode: 0o600 });
+      const extension = extname(source.artifact.path).toLowerCase();
+      const kind = fileKind(source.artifact.path, true);
+      let revisionBytes = source.bytes;
+      let converter = status.engine;
+      const outputs: { artifact: Omit<Artifact, 'hash' | 'size'>; bytes: Uint8Array }[] = [];
+      const sources: { documentId: string; originalName: string; origin: string }[] = [];
+      if (kind === 'email' || kind === 'pdf') {
+        const inventory = z
+          .object({
+            html: z
+              .string()
+              .max(16 * 1024 * 1024)
+              .nullable(),
+            attachments: z
+              .array(
+                z
+                  .object({
+                    name: z.string().max(32768),
+                    file: z
+                      .string()
+                      .regex(/^attachment-[0-9]{1,2}\.bin$/)
+                      .nullable(),
+                    inline: z.boolean(),
+                  })
+                  .strict(),
+              )
+              .max(64),
+          })
+          .strict()
+          .parse(
+            JSON.parse(await this.runtime.worker(job.path, 'source.cjs', [extension], signal)),
+          );
+        let ancestor = document.id;
+        for (let depth = 0; depth <= 4; depth++) {
+          const parent = state.families.find(
+            (family) => family.members[0] !== ancestor && family.members.includes(ancestor),
+          )?.members[0];
+          if (!parent) break;
+          if (depth === 4) throw new Error('FAMILY_DEPTH_LIMIT');
+          ancestor = parent;
+        }
+        if (inventory.attachments.length) {
+          const family = {
+            id: randomUUID(),
+            members: [document.id],
+            inventoryComplete: true,
+            dispositions: { [document.id]: { kind: 'include' as const } } as Record<
+              string,
+              import('../../shared/studio-domain').Disposition
+            >,
+          };
+          for (const attachment of inventory.attachments) {
+            if (!attachment.file) {
+              family.inventoryComplete = false;
+              continue;
+            }
+            const bytes = await readFile(join(job.path, attachment.file));
+            if (bytes.length > 64 * 1024 * 1024 || state.documents.length >= 1000)
+              throw new Error('INVENTORY_LIMIT');
+            const id = randomUUID();
+            state.documents.push({ id, sourceHash: bytesHash(bytes) });
+            family.members.push(id);
+            family.dispositions[id] = { kind: 'unresolved' };
+            const attachmentExtension = extname(attachment.name).slice(1).toLowerCase();
+            const suffix = /^[a-z0-9]{1,12}$/.test(attachmentExtension)
+              ? attachmentExtension
+              : 'bin';
+            outputs.push({
+              artifact: {
+                path: `Exported/${document.id}/${id}/source.${suffix}`,
+                documentId: id,
+                role: 'source',
+              },
+              bytes,
+            });
+            sources.push({
+              documentId: id,
+              originalName: attachment.name || '(unnamed attachment)',
+              origin: `attachment of ${document.id}${attachment.inline ? ' (inline)' : ''}`,
+            });
+          }
+          state.families.push(family);
+        }
+        if (kind === 'email') {
+          if (!inventory.html) throw new Error('EMAIL_PREPARATION_FAILED');
+          revisionBytes = Buffer.from(await renderPdf(inventory.html, 'A4', signal));
+          converter = `email/Chromium ${process.versions.chrome}; ${status.engine}`;
+        }
+      } else if (kind === 'office') {
+        const office = await detectOffice();
+        if (!office.available) throw new Error('OFFICE_UNAVAILABLE');
+        const workspace = await mkdtemp(join(tmpdir(), 'msg2pdf-office-'));
+        try {
+          revisionBytes = await prepareOfficePdf(
+            await store.path(source.artifact.path),
+            workspace,
+            office,
+            '',
+            signal,
+          );
+        } finally {
+          await rm(workspace, { recursive: true, force: true });
+        }
+        converter = `LibreOffice ${office.version}; ${status.engine}`;
+      } else throw new Error('UNSUPPORTED_SOURCE');
+      if (revisionBytes.length > 100 * 1024 * 1024) throw new Error('REVISION_LIMIT');
+      await writeFile(join(job.path, 'input.pdf'), revisionBytes, { mode: 0o600 });
       await this.runtime.checker(job.path, 'qpdf', ['--check', '/work/input.pdf'], signal);
       const graph: unknown = JSON.parse(
         await this.runtime.checker(
@@ -243,43 +375,51 @@ export class StudioService {
         ),
       );
       const pages = this.runtime.metadata(graph);
-      const snapshot = await this.runtime.render(source.bytes, pages, status.engine, signal);
-      if (snapshot.revisionHash !== document.sourceHash) throw new Error('SOURCE_CHANGED');
+      const snapshot = await this.runtime.render(revisionBytes, pages, status.engine, signal);
+      const revisionHash = bytesHash(revisionBytes);
+      if (snapshot.revisionHash !== revisionHash) throw new Error('SOURCE_CHANGED');
       const snapshotBytes = Buffer.from(JSON.stringify(snapshot));
       const snapshotHash = bytesHash(snapshotBytes);
       document.revision = {
-        hash: document.sourceHash,
+        hash: revisionHash,
         snapshotHash,
         sourceHash: document.sourceHash,
         pages,
-        converter: status.engine,
+        converter,
       };
       document.plan = {
         id: randomUUID(),
-        revisionHash: document.sourceHash,
+        revisionHash,
         marks: [],
         reviewedPages: [],
       };
       document.candidate = undefined;
       document.failure = undefined;
-      await store.transition(request.version, state, [
-        {
-          artifact: {
-            path: `For Redaction/${document.id}/${randomUUID()}/review.pdf`,
-            documentId: document.id,
-            role: 'revision',
+      await store.transition(
+        request.version,
+        state,
+        [
+          ...outputs,
+          {
+            artifact: {
+              path: `For Redaction/${document.id}/${randomUUID()}/review.pdf`,
+              documentId: document.id,
+              role: 'revision',
+            },
+            bytes: revisionBytes,
           },
-          bytes: source.bytes,
-        },
-        {
-          artifact: {
-            path: `.studio/snapshots/${document.id}/${snapshotHash}.json`,
-            documentId: document.id,
-            role: 'snapshot',
+          {
+            artifact: {
+              path: `.studio/snapshots/${document.id}/${snapshotHash}.json`,
+              documentId: document.id,
+              role: 'snapshot',
+            },
+            bytes: snapshotBytes,
           },
-          bytes: snapshotBytes,
-        },
-      ]);
+        ],
+        undefined,
+        sources,
+      );
     } catch (error) {
       failure = error;
     } finally {
@@ -291,7 +431,7 @@ export class StudioService {
         this.document(next, document.id).failure = 'PREPARATION_FAILED';
         await store.transition(request.version, next);
       }
-      throw new Error(signal.aborted ? 'CANCELLED' : 'PDF_PREPARATION_FAILED');
+      throw new Error(signal.aborted ? 'CANCELLED' : 'DOCUMENT_PREPARATION_FAILED');
     }
     return this.view();
   }
@@ -723,17 +863,55 @@ export class StudioService {
       defaultId: 0,
       cancelId: 0,
       message: `Approve ${manifest.files.length} sanitized document(s) for sharing?`,
-      detail: `Only the selected image-only PDFs and a neutral manifest will be published. Text search, accessibility tags, forms and signatures are absent. Originals remain private.\n\n${manifest.files.map((file) => `${file.name} · ${file.pages} page(s)\n${file.hash}`).join('\n\n')}\n\nManifest SHA-256: ${evidenceHash(manifest)}`,
+      detail: `This approves a subset of ${manifest.files.length} out of ${state.documents.length} captured documents. Only the selected image-only PDFs and a neutral manifest will be published. Text search, accessibility tags, forms and signatures are absent. Originals remain private.\n\n${manifest.files.map((file) => `${file.name} ← ${store.source(file.documentId).originalName}\n${file.pages} page(s) · ${file.hash}`).join('\n\n')}\n\nExplicit family exclusions:\n${
+        state.families
+          .filter((family) => family.members.some((id) => request.selection.includes(id)))
+          .flatMap((family) =>
+            family.members
+              .filter((id) => family.dispositions[id]?.kind === 'exclude')
+              .map((id) => {
+                const disposition = family.dispositions[id];
+                return `${store.source(id).originalName}: ${disposition?.kind === 'exclude' ? disposition.reason : ''}`;
+              }),
+          )
+          .join('\n') || 'None'
+      }\n\nManifest SHA-256: ${evidenceHash(manifest)}`,
     });
     if (decision.response !== 1) return this.view();
     signal.throwIfAborted();
     state.releaseApproval = {
+      stateVersion: state.version + 1,
       manifest,
       manifestHash: evidenceHash(manifest),
       contextHash: releaseFingerprint({ ...state, version: state.version + 1 }, request.selection),
       actor: 'Local user',
       at: new Date().toISOString(),
     };
+    await store.transition(request.version, state);
+    return this.view();
+  }
+  async disposition(value: unknown): Promise<StudioView> {
+    const request = z
+      .object({
+        version: z.number().int().nonnegative(),
+        familyId: idSchema,
+        documentId: idSchema,
+        kind: z.enum(['include', 'exclude', 'unresolved']),
+        reason: z.string().trim().min(1).max(200).optional(),
+      })
+      .strict()
+      .parse(value);
+    const store = this.current();
+    const state = store.state();
+    if (state.version !== request.version) throw new Error('STATE_STALE');
+    const family = state.families.find((item) => item.id === request.familyId);
+    if (!family?.members.includes(request.documentId)) throw new Error('FAMILY_UNRESOLVED');
+    if (request.kind === 'exclude' && !request.reason)
+      throw new Error('Exclusion requires a reason.');
+    family.dispositions[request.documentId] =
+      request.kind === 'exclude'
+        ? { kind: 'exclude', reason: request.reason ?? '' }
+        : { kind: request.kind };
     await store.transition(request.version, state);
     return this.view();
   }
@@ -748,6 +926,31 @@ export class StudioService {
       await this.candidateEvidence(state, this.document(state, file.documentId));
     signal.throwIfAborted();
     await store.publish(request.version);
+    return this.view();
+  }
+  async openRelease(value: unknown): Promise<StudioView> {
+    const request = z
+      .object({ id: idSchema, version: z.number().int().nonnegative() })
+      .strict()
+      .parse(value);
+    const store = this.current();
+    const state = store.state();
+    if (state.version !== request.version) throw new Error('STATE_STALE');
+    const release = state.releases?.find((item) => item.approval.manifest.releaseId === request.id);
+    if (
+      !release ||
+      release.approval.contextHash !==
+        releaseFingerprint(
+          { ...state, version: release.approval.stateVersion },
+          release.approval.manifest.files.map((file) => file.documentId),
+        )
+    )
+      throw new Error('RELEASE_SUPERSEDED');
+    for (const file of release.approval.manifest.files)
+      await this.candidateEvidence(state, this.document(state, file.documentId));
+    await store.validate();
+    const failure = await shell.openPath(join(store.root, release.path));
+    if (failure) throw new Error('Could not open the released package folder.');
     return this.view();
   }
   async dispose(): Promise<void> {
@@ -804,6 +1007,8 @@ export function registerStudioApi(
   handle('reviewCandidate', (value, signal) => service.reviewCandidate(value, signal));
   handle('approveRelease', (value, signal) => service.approveRelease(value, signal));
   handle('publish', (value, signal) => service.publish(value, signal));
+  handle('openRelease', (value) => service.openRelease(value));
+  handle('disposition', (value) => service.disposition(value));
   handle('cancel', async () => {});
   return async () => {
     for (const channel of names) ipcMain.removeHandler(channel);

@@ -19,4 +19,11 @@ export async function buildStudio() {
     format: 'cjs',
     outfile: `${target}/assemble.cjs`,
   });
+  await build({
+    entryPoints: ['src/main/studio/source-worker.ts'],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    outfile: `${target}/source.cjs`,
+  });
 }
