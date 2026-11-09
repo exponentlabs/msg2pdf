@@ -1,0 +1,33 @@
+{
+  "id": "b1-raster-compatibility-v1",
+  "status": "evaluation-only",
+  "releaseEnabled": false,
+  "engine": "PDF.js 6.5.438 canvas plus pdf-lib 1.17.1 fresh image-only assembly",
+  "independentChecks": "Poppler 26.01.0 CLI, invoked by packaged Electron Node worker inside bubblewrap",
+  "supplementalChecks": "pdf-lib object inspection is correlated with assembly and does not establish independent object allowlist verification",
+  "limits": { "pages": 8, "pagePoints": 2000, "rasterScale": 2, "checkerTimeoutMs": 15000 },
+  "fixtures": [
+    "text",
+    "rotated-cropped",
+    "user-unit",
+    "hidden-attachment",
+    "shared-image",
+    "zero-marks"
+  ],
+  "runtimeChecks": [
+    "independent page parsing and rendering",
+    "empty output text layer",
+    "zero embedded attachments",
+    "source metadata canary absent",
+    "mask interiors black",
+    "unmarked color and shared-image controls retained"
+  ],
+  "qualificationPending": [
+    "complete independent decoded-object allowlist inspection",
+    "full ADR 0004 adversarial corpus",
+    "fidelity thresholds outside all marked regions",
+    "host-tool distribution and supported native platforms",
+    "production worker budgets and approval invalidation",
+    "raster fidelity and accessibility policy"
+  ]
+}
