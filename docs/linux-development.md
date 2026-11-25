@@ -1,6 +1,6 @@
 # Linux development and machine handoff
 
-Target for this handoff: **Fedora ARM64 in a VM on an Apple Silicon Mac, with a desktop session**. Instructions were reviewed on 9 November 2026. They have not yet been executed in that VM. Existing Linux CI runs on Ubuntu 24.04 x64; it is useful baseline evidence, not Fedora/ARM64 validation.
+Target for this handoff: **Fedora ARM64 in a VM on an Apple Silicon Mac, with a desktop session**. Instructions were reviewed on 9 November 2026. Local Fedora 44 ARM64 source, desktop integration and unpacked-runtime checks have now passed; see the [executed results and remaining limitations](verification.md#local-fedora-arm64-validation--9-november-2026). Default development startup and optional Office conversion remain unvalidated. Existing Linux CI runs on Ubuntu 24.04 x64; it is separate baseline evidence.
 
 ## What to take to the VM
 
